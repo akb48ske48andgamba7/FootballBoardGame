@@ -99,10 +99,9 @@ docker run -p 8080:8080 football-board-game
 ```
 ブラウザで `http://localhost:8080` を開いて動作を確認します。
 
-### Google Cloud CLI での直接デプロイ
-```bash
-gcloud run deploy positional-tactics-football \
-  --source . \
-  --region asia-northeast1 \
-  --allow-unauthenticated
-```
+## 🌐 本番環境 (Google Cloud Run)
+- **公開URL**: **https://football-board-game-trgplfi7xq-an.a.run.app**
+- **GitHub リポジトリ**: **https://github.com/akb48ske48andgamba7/FootballBoardGame**
+
+### CI/CD 自動デプロイ
+`main` ブランチにコミットをプッシュすると、GitHub Actions により自動でテスト・ビルド・Cloud Run へのデプロイが完了します。
