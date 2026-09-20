@@ -32,6 +32,11 @@ export const api = {
     }),
   applyDefaultFormation: (team: TeamType) =>
     request<GameState>(`/setup/default?team=${team}`, { method: 'POST' }),
+  applyFormationPreset: (team: TeamType, formationId: string) =>
+    request<GameState>(`/setup/formation?team=${team}`, {
+      method: 'POST',
+      body: JSON.stringify({ formationId }),
+    }),
   setupTeam: (team: TeamType, placements: PiecePlacementDto[]) =>
     request<GameState>(`/setup?team=${team}`, {
       method: 'POST',

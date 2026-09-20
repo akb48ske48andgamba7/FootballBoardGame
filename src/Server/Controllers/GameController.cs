@@ -51,6 +51,12 @@ public class GameController : ControllerBase
         return Ok(new ApiResponse<GameState>(true, "ゲームをリセットしました。", state));
     }
 
+    [HttpGet("formations")]
+    public ActionResult<ApiResponse<List<FormationPreset>>> GetFormations()
+    {
+        return Ok(new ApiResponse<List<FormationPreset>>(true, "フォーメーション一覧を取得しました。", FormationPreset.All));
+    }
+
     [HttpPost("setup/default")]
     public ActionResult<ApiResponse<GameState>> ApplyDefaultFormation([FromQuery] TeamType team)
     {
@@ -58,6 +64,20 @@ public class GameController : ControllerBase
         {
             var state = _gameEngine.ApplyDefaultFormation(team);
             return Ok(new ApiResponse<GameState>(true, $"{team} のデフォルト配置を適用しました。", state));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ApiResponse<GameState>(false, ex.Message, null));
+        }
+    }
+
+    [HttpPost("setup/formation")]
+    public ActionResult<ApiResponse<GameState>> ApplyFormationPreset([FromQuery] TeamType team, [FromBody] ApplyFormationRequest request)
+    {
+        try
+        {
+            var state = _gameEngine.ApplyFormationPreset(team, request.FormationId);
+            return Ok(new ApiResponse<GameState>(true, $"{team} にフォーメーション「{request.FormationId}」を適用しました。", state));
         }
         catch (Exception ex)
         {

@@ -109,4 +109,22 @@ export interface PiecePlacementDto {
   pieceId: string;
   row: number;
   col: number;
+  ability?: number;
 }
+
+export interface RelativePlacement {
+  number: number;
+  positionName: string;
+  row: number;
+  relativeCol: number;
+  defaultAbility: number;
+}
+
+export interface FormationPreset {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  positions: RelativePlacement[];
+}
+

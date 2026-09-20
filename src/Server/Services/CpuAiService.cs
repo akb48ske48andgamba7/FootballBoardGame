@@ -20,10 +20,11 @@ public class CpuAiService : ICpuAiService
         // 1. 初期配置フェーズの処理
         if (state.Phase == GamePhase.SetupFirstHalfB || state.Phase == GamePhase.SetupSecondHalfB)
         {
-            _gameEngine.ApplyDefaultFormation(cpuTeam);
+            var randomPreset = FormationPreset.All[Random.Shared.Next(FormationPreset.All.Count)];
+            _gameEngine.ApplyFormationPreset(cpuTeam, randomPreset.Id);
             var placements = state.Pieces
                 .Where(p => p.Team == cpuTeam)
-                .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col))
+                .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col, p.Ability))
                 .ToList();
             return _gameEngine.SetupTeam(cpuTeam, placements);
         }

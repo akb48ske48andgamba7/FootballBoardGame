@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import type { GameMode, GameState, TeamType } from './types/game';
+import type { GameMode, GameState, PiecePlacementDto, TeamType } from './types/game';
 import { api } from './services/api';
 import { Header } from './components/Header';
 import { ScoreBoard } from './components/ScoreBoard';
@@ -172,15 +172,21 @@ export function App() {
     }
   };
 
-  const handleConfirmSetup = async (team: TeamType) => {
+  const handleConfirmSetup = async (team: TeamType, customPlacements?: PiecePlacementDto[]) => {
     if (!state) return;
     try {
-      const teamPieces = state.pieces.filter((p) => p.team === team);
-      const placements = teamPieces.map((p) => ({
-        pieceId: p.id,
-        row: p.position.row,
-        col: p.position.col,
-      }));
+      let placements: PiecePlacementDto[];
+      if (customPlacements && customPlacements.length === 11) {
+        placements = customPlacements;
+      } else {
+        const teamPieces = state.pieces.filter((p) => p.team === team);
+        placements = teamPieces.map((p) => ({
+          pieceId: p.id,
+          row: p.position.row,
+          col: p.position.col,
+          ability: p.ability,
+        }));
+      }
       const updated = await api.setupTeam(team, placements);
       setState(updated);
       setError(null);
@@ -297,7 +303,6 @@ export function App() {
       {isHumanSetupPhase && (
         <SetupModal
           state={state}
-          onApplyDefault={handleApplyDefaultSetup}
           onConfirmSetup={handleConfirmSetup}
         />
       )}

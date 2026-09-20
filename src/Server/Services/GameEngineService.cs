@@ -69,63 +69,36 @@ public class GameEngineService : IGameEngineService
 
     public GameState ApplyDefaultFormation(TeamType team)
     {
+        return ApplyFormationPreset(team, "4-3-3");
+    }
+
+    public GameState ApplyFormationPreset(TeamType team, string formationId)
+    {
+        var preset = FormationPreset.All.FirstOrDefault(p => p.Id == formationId)
+            ?? FormationPreset.All.First(p => p.Id == "4-3-3");
+
         bool isTeamA = team == TeamType.TeamA;
         int half = _state.Half;
-
-        // 自陣のベース列（前半: TeamAは左側 Col 1〜6、TeamBは右側 Col 7〜12 / 後半は逆）
         bool isLeftHalf = (half == 1 && isTeamA) || (half == 2 && !isTeamA);
-
-        int gkCol = isLeftHalf ? 1 : 12;
-        int dfCol = isLeftHalf ? 2 : 11;
-        int mfCol = isLeftHalf ? 4 : 9;
-        int fwCol = isLeftHalf ? 6 : 7;
 
         var teamPieces = _state.Pieces.Where(p => p.Team == team).OrderBy(p => p.Number).ToList();
 
-        foreach (var p in teamPieces)
+        foreach (var pos in preset.Positions)
         {
-            switch (p.Number)
+            var piece = teamPieces.FirstOrDefault(p => p.Number == pos.Number);
+            if (piece != null)
             {
-                case 1: // GK (中央レーン Row 4, ゴール直前)
-                    p.Position = new Position(4, gkCol);
-                    break;
-                case 2: // DF 上
-                    p.Position = new Position(2, dfCol);
-                    break;
-                case 3: // DF 上インサイド
-                    p.Position = new Position(3, dfCol);
-                    break;
-                case 4: // DF 下インサイド
-                    p.Position = new Position(5, dfCol);
-                    break;
-                case 5: // DF 下
-                    p.Position = new Position(6, dfCol);
-                    break;
-                case 6: // MF 上
-                    p.Position = new Position(2, mfCol);
-                    break;
-                case 7: // MF センター
-                    p.Position = new Position(4, mfCol);
-                    break;
-                case 8: // MF 下
-                    p.Position = new Position(6, mfCol);
-                    break;
-                case 9: // FW 上インサイド
-                    p.Position = new Position(3, fwCol);
-                    break;
-                case 10: // FW センター (Ace ★3)
-                    p.Position = new Position(4, fwCol);
-                    break;
-                case 11: // FW 下インサイド
-                    p.Position = new Position(5, fwCol);
-                    break;
+                int actualCol = isLeftHalf ? pos.RelativeCol : (13 - pos.RelativeCol);
+                piece.Position = new Position(pos.Row, actualCol);
+                piece.Ability = pos.DefaultAbility;
+                piece.Name = $"{pos.PositionName} {piece.Number}{(piece.Ability == 3 ? " ★" : "")}";
             }
         }
 
-        // ボールはキックオフ側FW（背番号10）が保持
+        // ボールはキックオフ側のエース(★3)が保持
         if (team == _state.ActiveTeam)
         {
-            var ace = teamPieces.FirstOrDefault(p => p.Number == 10);
+            var ace = teamPieces.FirstOrDefault(p => p.Ability == 3) ?? teamPieces.FirstOrDefault(p => p.Number == 10);
             if (ace != null)
             {
                 _state.Ball.Position = ace.Position;
@@ -133,6 +106,7 @@ public class GameEngineService : IGameEngineService
             }
         }
 
+        _state.MatchLogs.Add($"[{team}] フォーメーション「{preset.Name}」を適用しました。");
         return GetCurrentState();
     }
 
@@ -148,6 +122,8 @@ public class GameEngineService : IGameEngineService
         int minCol = isLeftHalf ? 1 : 7;
         int maxCol = isLeftHalf ? 6 : 12;
 
+        var teamPieces = _state.Pieces.Where(p => p.Team == team).ToList();
+
         foreach (var placement in placements)
         {
             if (placement.Row < 1 || placement.Row > 7 || placement.Col < minCol || placement.Col > maxCol)
@@ -155,11 +131,31 @@ public class GameEngineService : IGameEngineService
                 throw new ArgumentException($"自陣 (縦 Row 1〜7, 横 Col {minCol}〜{maxCol}) の範囲内に配置してください。");
             }
 
-            var piece = _state.Pieces.FirstOrDefault(p => p.Id == placement.PieceId && p.Team == team);
+            var piece = teamPieces.FirstOrDefault(p => p.Id == placement.PieceId);
             if (piece != null)
             {
                 piece.Position = new Position(placement.Row, placement.Col);
+                if (placement.Ability.HasValue)
+                {
+                    piece.Ability = placement.Ability.Value;
+                }
             }
+        }
+
+        // 能力配分バリデーション: 全11名で能力3が1名、能力2が3名、能力1が7名
+        int count3 = teamPieces.Count(p => p.Ability == 3);
+        int count2 = teamPieces.Count(p => p.Ability == 2);
+        int count1 = teamPieces.Count(p => p.Ability == 1);
+
+        if (count3 != 1 || count2 != 3 || count1 != 7)
+        {
+            throw new ArgumentException($"能力値の配分が正しくありません。(★3が1名、★2が3名、★1が7名必要です。現在: ★3={count3}名, ★2={count2}名, ★1={count1}名)");
+        }
+
+        // GKが1名いることの検証
+        if (teamPieces.Count(p => p.IsGoalkeeper) != 1)
+        {
+            throw new ArgumentException("ゴールキーパー(GK)は必ず1名必要です。");
         }
 
         if (_state.Phase == GamePhase.SetupFirstHalfA)

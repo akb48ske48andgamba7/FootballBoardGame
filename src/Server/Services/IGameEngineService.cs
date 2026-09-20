@@ -9,6 +9,7 @@ public interface IGameEngineService
     GameState SetGameMode(GameMode mode);
     GameState SetupTeam(TeamType team, List<PiecePlacementDto> placements);
     GameState ApplyDefaultFormation(TeamType team);
+    GameState ApplyFormationPreset(TeamType team, string formationId);
     GameState MovePiece(string pieceId, Position targetPosition);
     GameState PassOrShot(Position targetPosition);
     GameState ResolveDuel();

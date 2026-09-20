@@ -167,5 +167,81 @@ public class RuleTests
         Assert.Equal(1, gkParticipant.AbilityBonus);
         Assert.Equal(bGk.Ability + 1, gkParticipant.TotalAbility);
     }
+
+    [Fact]
+    public void FormationPresets_ShouldContain15Formations_AndValidCoordinates()
+    {
+        Assert.Equal(15, FormationPreset.All.Count);
+
+        foreach (var preset in FormationPreset.All)
+        {
+            Assert.Equal(11, preset.Positions.Count);
+            // GKは必ず (Row 4, Col 1)
+            var gk = preset.Positions.First(p => p.Number == 1);
+            Assert.Equal(4, gk.Row);
+            Assert.Equal(1, gk.RelativeCol);
+
+            // 全ての駒が自陣内 (Row 1〜7, RelCol 1〜6)
+            foreach (var pos in preset.Positions)
+            {
+                Assert.InRange(pos.Row, 1, 7);
+                Assert.InRange(pos.RelativeCol, 1, 6);
+            }
+        }
+    }
+
+    [Fact]
+    public void SetupTeam_WithCustomAbilities_ShouldApplyAndValidateCorrectly()
+    {
+        var gameEngine = new GameEngineService(_diceService, _offsideService);
+        var state = gameEngine.GetCurrentState();
+        var teamAPieces = state.Pieces.Where(p => p.Team == TeamType.TeamA).OrderBy(p => p.Number).ToList();
+
+        // 正常な能力割り当て: GKに★3(1名), DFに★2(3名), その他★1(7名)
+        var validPlacements = new List<PiecePlacementDto>
+        {
+            new(teamAPieces[0].Id, 4, 1, 3), // GKを★3にカスタム
+            new(teamAPieces[1].Id, 2, 2, 2), // DFに★2
+            new(teamAPieces[2].Id, 3, 2, 2), // DFに★2
+            new(teamAPieces[3].Id, 5, 2, 2), // DFに★2
+            new(teamAPieces[4].Id, 6, 2, 1),
+            new(teamAPieces[5].Id, 2, 4, 1),
+            new(teamAPieces[6].Id, 4, 4, 1),
+            new(teamAPieces[7].Id, 6, 4, 1),
+            new(teamAPieces[8].Id, 3, 6, 1),
+            new(teamAPieces[9].Id, 4, 6, 1), // 元のエースを★1に変更
+            new(teamAPieces[10].Id, 5, 6, 1),
+        };
+
+        var updated = gameEngine.SetupTeam(TeamType.TeamA, validPlacements);
+        var updatedPieces = updated.Pieces.Where(p => p.Team == TeamType.TeamA).ToList();
+
+        Assert.Equal(3, updatedPieces.First(p => p.Number == 1).Ability); // GKが★3になったことを確認
+        Assert.Equal(1, updatedPieces.Count(p => p.Ability == 3));
+        Assert.Equal(3, updatedPieces.Count(p => p.Ability == 2));
+        Assert.Equal(7, updatedPieces.Count(p => p.Ability == 1));
+
+        // 不正な能力割り当て（★3が2名いる場合）は例外が発生することを確認
+        var invalidPlacements = new List<PiecePlacementDto>
+        {
+            new(teamAPieces[0].Id, 4, 1, 3),
+            new(teamAPieces[1].Id, 2, 2, 3), // もう1名★3 (不正)
+            new(teamAPieces[2].Id, 3, 2, 2),
+            new(teamAPieces[3].Id, 5, 2, 2),
+            new(teamAPieces[4].Id, 6, 2, 1),
+            new(teamAPieces[5].Id, 2, 4, 1),
+            new(teamAPieces[6].Id, 4, 4, 1),
+            new(teamAPieces[7].Id, 6, 4, 1),
+            new(teamAPieces[8].Id, 3, 6, 1),
+            new(teamAPieces[9].Id, 4, 6, 1),
+            new(teamAPieces[10].Id, 5, 6, 1),
+        };
+
+        Assert.Throws<ArgumentException>(() =>
+        {
+            gameEngine.SetupTeam(TeamType.TeamB, invalidPlacements);
+        });
+    }
 }
+
 

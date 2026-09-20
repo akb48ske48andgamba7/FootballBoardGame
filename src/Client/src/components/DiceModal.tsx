@@ -85,7 +85,7 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
               }}
             >
               {duel.attackingTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED'}
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 {duel.attackers.map((a) => `${a.name} (★${a.ability})`).join(', ')}
               </div>
             </span>
@@ -94,12 +94,12 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
               基礎能力合計: <span className="fighter-ability-val">{duel.attackerAbilitySum}</span>
             </div>
 
-            {/* 3Dサイコロ */}
+            {/* 3Dサイコロ (約2倍) */}
             <div className={`dice-cube ${isRolling ? 'rolling' : ''}`}>
               {getDiceIcon(attackerDiceVal)}
             </div>
 
-            <div style={{ fontSize: '13px', fontWeight: 700 }}>
+            <div style={{ fontSize: '22px', fontWeight: 800 }}>
               出目: +{attackerDiceVal}
             </div>
           </div>
@@ -115,7 +115,7 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
               }}
             >
               {duel.defendingTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED'}
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 {duel.defenders.map((d) =>
                   d.abilityBonus > 0
                     ? `${d.name} (★${d.ability} + 🧤手守備+${d.abilityBonus})`
@@ -125,7 +125,7 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
             </span>
 
             {duel.hasGkHandBonus && (
-              <div className="gk-save-bonus-badge">
+              <div className="gk-save-bonus-badge" style={{ fontSize: '14px', padding: '4px 12px' }}>
                 🧤 GK手を使った守備: 能力+1
               </div>
             )}
@@ -134,12 +134,12 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
               能力合計: <span className="fighter-ability-val">{duel.defenderAbilitySum}</span>
             </div>
 
-            {/* 3Dサイコロ */}
+            {/* 3Dサイコロ (約2倍) */}
             <div className={`dice-cube ${isRolling ? 'rolling' : ''}`}>
               {getDiceIcon(defenderDiceVal)}
             </div>
 
-            <div style={{ fontSize: '13px', fontWeight: 700 }}>
+            <div style={{ fontSize: '22px', fontWeight: 800 }}>
               出目: +{defenderDiceVal}
             </div>
           </div>
@@ -147,7 +147,7 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
 
         {/* 比較メーター */}
         <div className="duel-meter-container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: 800 }}>
             <span style={{ color: 'var(--teamA-primary)' }}>合計: {attackerTotal}</span>
             <span style={{ color: 'var(--teamB-primary)' }}>合計: {defenderTotal}</span>
           </div>
