@@ -241,6 +241,103 @@ public class RuleTests
         {
             gameEngine.SetupTeam(TeamType.TeamB, invalidPlacements);
         });
+
+        // 能力2が4名設定できることの確認 (★3が1名, ★2が4名, ★1が6名)
+        var fourStar2Placements = new List<PiecePlacementDto>
+        {
+            new(teamAPieces[0].Id, 4, 1, 2), // GK ★2
+            new(teamAPieces[1].Id, 2, 2, 2), // DF ★2
+            new(teamAPieces[2].Id, 3, 2, 2), // DF ★2
+            new(teamAPieces[3].Id, 5, 2, 2), // DF ★2 (計4名)
+            new(teamAPieces[4].Id, 6, 2, 1),
+            new(teamAPieces[5].Id, 2, 4, 1),
+            new(teamAPieces[6].Id, 4, 4, 1),
+            new(teamAPieces[7].Id, 6, 4, 1),
+            new(teamAPieces[8].Id, 3, 6, 1),
+            new(teamAPieces[9].Id, 4, 6, 3), // FW ★3 エース
+            new(teamAPieces[10].Id, 5, 6, 1),
+        };
+
+        var updatedFour = gameEngine.SetupTeam(TeamType.TeamA, fourStar2Placements);
+        var piecesFour = updatedFour.Pieces.Where(p => p.Team == TeamType.TeamA).ToList();
+        Assert.Equal(1, piecesFour.Count(p => p.Ability == 3));
+        Assert.Equal(4, piecesFour.Count(p => p.Ability == 2));
+        Assert.Equal(6, piecesFour.Count(p => p.Ability == 1));
+
+        // 能力2が5名の場合はエラーになることを確認
+        var fiveStar2Placements = new List<PiecePlacementDto>
+        {
+            new(teamAPieces[0].Id, 4, 1, 2), // GK ★2
+            new(teamAPieces[1].Id, 2, 2, 2), // DF ★2
+            new(teamAPieces[2].Id, 3, 2, 2), // DF ★2
+            new(teamAPieces[3].Id, 5, 2, 2), // DF ★2
+            new(teamAPieces[4].Id, 6, 2, 2), // DF ★2 (計5名: 不正)
+            new(teamAPieces[5].Id, 2, 4, 1),
+            new(teamAPieces[6].Id, 4, 4, 1),
+            new(teamAPieces[7].Id, 6, 4, 1),
+            new(teamAPieces[8].Id, 3, 6, 1),
+            new(teamAPieces[9].Id, 4, 6, 3), // FW ★3 エース
+            new(teamAPieces[10].Id, 5, 6, 1),
+        };
+
+        Assert.Throws<ArgumentException>(() =>
+        {
+            gameEngine.SetupTeam(TeamType.TeamA, fiveStar2Placements);
+        });
+    }
+
+    [Fact]
+    public void MultipleMoves_SamePiece_ShouldBeAllowedUpToMaxMoves()
+    {
+        var gameEngine = new GameEngineService(_diceService, _offsideService);
+        var state = gameEngine.GetCurrentState();
+        gameEngine.SetupTeam(TeamType.TeamA, state.Pieces.Where(p => p.Team == TeamType.TeamA)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+        gameEngine.SetupTeam(TeamType.TeamB, state.Pieces.Where(p => p.Team == TeamType.TeamB)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+
+        var fwPiece = gameEngine.GetCurrentState().Pieces.First(p => p.Team == TeamType.TeamA && p.Number == 10);
+
+        // 1回目の移動
+        gameEngine.MovePiece(fwPiece.Id, new Position(fwPiece.Position.Row, fwPiece.Position.Col + 1));
+        Assert.Equal(2, gameEngine.GetCurrentState().CurrentTurnAction.StandardMovesRemaining);
+
+        // 2回目の移動 (同一選手！)
+        gameEngine.MovePiece(fwPiece.Id, new Position(fwPiece.Position.Row, fwPiece.Position.Col + 1));
+        Assert.Equal(1, gameEngine.GetCurrentState().CurrentTurnAction.StandardMovesRemaining);
+
+        // 3回目の移動 (同一選手！)
+        gameEngine.MovePiece(fwPiece.Id, new Position(fwPiece.Position.Row, fwPiece.Position.Col + 1));
+        Assert.Equal(0, gameEngine.GetCurrentState().CurrentTurnAction.StandardMovesRemaining);
+
+        // 4回目の移動はエラー
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            gameEngine.MovePiece(fwPiece.Id, new Position(fwPiece.Position.Row, fwPiece.Position.Col + 1));
+        });
+    }
+
+    [Fact]
+    public void ExpandedPenaltyArea_ShouldCoverTwoColumns()
+    {
+        // TeamAが左(Col 0が自ゴール)、TeamBが右(Col 13が自ゴール)
+        // TeamA守備時: Col 1〜2, Row 3〜5 がペナルティエリア
+        Assert.True(new Position(3, 1).IsInPenaltyArea(TeamType.TeamA, 1));
+        Assert.True(new Position(4, 1).IsInPenaltyArea(TeamType.TeamA, 1));
+        Assert.True(new Position(5, 1).IsInPenaltyArea(TeamType.TeamA, 1));
+        Assert.True(new Position(3, 2).IsInPenaltyArea(TeamType.TeamA, 1)); // 拡大された列
+        Assert.True(new Position(4, 2).IsInPenaltyArea(TeamType.TeamA, 1)); // 拡大された列
+        Assert.True(new Position(5, 2).IsInPenaltyArea(TeamType.TeamA, 1)); // 拡大された列
+
+        // エリア外
+        Assert.False(new Position(2, 1).IsInPenaltyArea(TeamType.TeamA, 1)); // 上ハーフ
+        Assert.False(new Position(6, 2).IsInPenaltyArea(TeamType.TeamA, 1)); // 下ハーフ
+        Assert.False(new Position(4, 3).IsInPenaltyArea(TeamType.TeamA, 1)); // Col 3
+
+        // TeamB守備時: Col 11〜12, Row 3〜5
+        Assert.True(new Position(4, 12).IsInPenaltyArea(TeamType.TeamB, 1));
+        Assert.True(new Position(4, 11).IsInPenaltyArea(TeamType.TeamB, 1)); // 拡大された列
+        Assert.False(new Position(4, 10).IsInPenaltyArea(TeamType.TeamB, 1));
     }
 }
 

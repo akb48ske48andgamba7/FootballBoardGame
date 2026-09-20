@@ -23,16 +23,10 @@ export const Board: React.FC<BoardProps> = ({
 
   const selectedPiece = state.pieces.find((p) => p.id === selectedPieceId);
   const ballHolder = state.pieces.find((p) => p.id === state.ball.holderPieceId);
-
+  // 各コマの移動可否判定 (通常移動枠が残っていれば同一選手でも移動可能)
   const canPieceMoveClient = (piece: Piece): boolean => {
     if (piece.team !== state.activeTeam) return false;
     const action = state.currentTurnAction;
-    const moved = action?.movedPieceIds || [];
-    const hasMoved = moved.includes(piece.id);
-
-    if (hasMoved) {
-      return piece.isGoalkeeper && action.gkBonusAvailable && !action.hasUsedGkBonusMove;
-    }
     if ((action?.standardMovesRemaining ?? 0) > 0) {
       return true;
     }
@@ -166,14 +160,14 @@ export const Board: React.FC<BoardProps> = ({
               const validMove = isCellValidMove(row, col);
               const validPass = isCellValidPass(row, col);
 
-              // ペナルティエリア判定 (左: Col 1, Row 3〜5 / 右: Col 12, Row 3〜5)
-              const isLeftPA = col === 1 && row >= 3 && row <= 5;
-              const isRightPA = col === 12 && row >= 3 && row <= 5;
+              // ペナルティエリア判定 (左: Col 1〜2, Row 3〜5 / 右: Col 11〜12, Row 3〜5)
+              const isLeftPA = (col === 1 || col === 2) && row >= 3 && row <= 5;
+              const isRightPA = (col === 11 || col === 12) && row >= 3 && row <= 5;
               const paLeftClass = isLeftPA
-                ? `penalty-area-left ${row === 3 ? 'pa-top' : ''} ${row === 5 ? 'pa-bottom' : ''} pa-right`
+                ? `penalty-area-left ${row === 3 ? 'pa-top' : ''} ${row === 5 ? 'pa-bottom' : ''} ${col === 1 ? 'pa-left' : ''} ${col === 2 ? 'pa-right' : ''}`
                 : '';
               const paRightClass = isRightPA
-                ? `penalty-area-right ${row === 3 ? 'pa-top' : ''} ${row === 5 ? 'pa-bottom' : ''} pa-left`
+                ? `penalty-area-right ${row === 3 ? 'pa-top' : ''} ${row === 5 ? 'pa-bottom' : ''} ${col === 11 ? 'pa-left' : ''} ${col === 12 ? 'pa-right' : ''}`
                 : '';
 
               const piecesAtCell = state.pieces.filter(

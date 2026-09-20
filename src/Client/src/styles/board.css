@@ -66,33 +66,37 @@
   overflow: hidden;
 }
 
-/* ペナルティエリア枠線 (左側: Col 1, Row 3〜5 / 右側: Col 12, Row 3〜5) */
+/* ペナルティエリア枠線 (左側: Col 1〜2, Row 3〜5 / 右側: Col 11〜12, Row 3〜5) */
 .pitch-cell.penalty-area-left {
   background: rgba(0, 180, 255, 0.08) !important;
-  border-left: 2px solid rgba(255, 255, 255, 0.6);
+}
+.pitch-cell.penalty-area-left.pa-left {
+  border-left: 2px solid rgba(255, 255, 255, 0.7);
 }
 .pitch-cell.penalty-area-left.pa-top {
-  border-top: 2px solid rgba(255, 255, 255, 0.6);
+  border-top: 2px solid rgba(255, 255, 255, 0.7);
 }
 .pitch-cell.penalty-area-left.pa-bottom {
-  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.7);
 }
 .pitch-cell.penalty-area-left.pa-right {
-  border-right: 2px solid rgba(255, 255, 255, 0.6);
+  border-right: 2px solid rgba(255, 255, 255, 0.7);
 }
 
 .pitch-cell.penalty-area-right {
   background: rgba(255, 50, 100, 0.08) !important;
-  border-right: 2px solid rgba(255, 255, 255, 0.6);
-}
-.pitch-cell.penalty-area-right.pa-top {
-  border-top: 2px solid rgba(255, 255, 255, 0.6);
-}
-.pitch-cell.penalty-area-right.pa-bottom {
-  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
 }
 .pitch-cell.penalty-area-right.pa-left {
-  border-left: 2px solid rgba(255, 255, 255, 0.6);
+  border-left: 2px solid rgba(255, 255, 255, 0.7);
+}
+.pitch-cell.penalty-area-right.pa-top {
+  border-top: 2px solid rgba(255, 255, 255, 0.7);
+}
+.pitch-cell.penalty-area-right.pa-bottom {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.7);
+}
+.pitch-cell.penalty-area-right.pa-right {
+  border-right: 2px solid rgba(255, 255, 255, 0.7);
 }
 
 

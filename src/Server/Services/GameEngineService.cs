@@ -142,14 +142,14 @@ public class GameEngineService : IGameEngineService
             }
         }
 
-        // 能力配分バリデーション: 全11名で能力3が1名、能力2が3名、能力1が7名
+        // 能力配分バリデーション: 全11名で能力3が1名、能力2は最大4名まで、残りは能力1
         int count3 = teamPieces.Count(p => p.Ability == 3);
         int count2 = teamPieces.Count(p => p.Ability == 2);
         int count1 = teamPieces.Count(p => p.Ability == 1);
 
-        if (count3 != 1 || count2 != 3 || count1 != 7)
+        if (count3 != 1 || count2 > 4 || (count3 + count2 + count1) != 11)
         {
-            throw new ArgumentException($"能力値の配分が正しくありません。(★3が1名、★2が3名、★1が7名必要です。現在: ★3={count3}名, ★2={count2}名, ★1={count1}名)");
+            throw new ArgumentException($"能力値の配分が正しくありません。(★3が1名、★2は4名まで、残りは★1で合計11名必要です。現在: ★3={count3}名, ★2={count2}名, ★1={count1}名)");
         }
 
         // GKが1名いることの検証

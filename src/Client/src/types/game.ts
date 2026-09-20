@@ -35,6 +35,7 @@ export interface Ball {
 
 export interface TurnActionState {
   maxStandardMoveCount: number;
+  standardMoveCount?: number;
   movedPieceIds: string[];
   maxPassOrShotCount: number;
   passOrShotCount: number;

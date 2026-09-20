@@ -34,7 +34,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
             <div className={`move-dot ${remainingMoves >= 3 ? 'active' : ''}`} />
           </div>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            ({remainingMoves}/3名)
+            ({remainingMoves}/3回)
           </span>
         </div>
 

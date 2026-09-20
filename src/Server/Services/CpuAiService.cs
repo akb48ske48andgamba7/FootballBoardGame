@@ -15,52 +15,73 @@ public class CpuAiService : ICpuAiService
 
     public GameState ExecuteCpuStep(TeamType cpuTeam = TeamType.TeamB)
     {
-        var state = _gameEngine.GetCurrentState();
-
-        // 1. 初期配置フェーズの処理
-        if (state.Phase == GamePhase.SetupFirstHalfB || state.Phase == GamePhase.SetupSecondHalfB)
+        try
         {
-            var randomPreset = FormationPreset.All[Random.Shared.Next(FormationPreset.All.Count)];
-            _gameEngine.ApplyFormationPreset(cpuTeam, randomPreset.Id);
-            var placements = state.Pieces
-                .Where(p => p.Team == cpuTeam)
-                .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col, p.Ability))
-                .ToList();
-            return _gameEngine.SetupTeam(cpuTeam, placements);
-        }
+            var state = _gameEngine.GetCurrentState();
 
-        if ((state.Phase != GamePhase.FirstHalf && state.Phase != GamePhase.SecondHalf) ||
-            state.ActiveTeam != cpuTeam)
-        {
+            // 1. 初期配置フェーズの処理
+            if (state.Phase == GamePhase.SetupFirstHalfB || state.Phase == GamePhase.SetupSecondHalfB)
+            {
+                var randomPreset = FormationPreset.All[Random.Shared.Next(FormationPreset.All.Count)];
+                state = _gameEngine.ApplyFormationPreset(cpuTeam, randomPreset.Id);
+                var placements = state.Pieces
+                    .Where(p => p.Team == cpuTeam)
+                    .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col, p.Ability))
+                    .ToList();
+                return _gameEngine.SetupTeam(cpuTeam, placements);
+            }
+
+            if ((state.Phase != GamePhase.FirstHalf && state.Phase != GamePhase.SecondHalf) ||
+                state.ActiveTeam != cpuTeam)
+            {
+                return state;
+            }
+
+            // 2. デュエルが未解決なら解決
+            if (state.PendingDuel != null)
+            {
+                state = _gameEngine.ResolveDuel();
+                if (state.PendingDuel != null) return state;
+            }
+
+            var ballHolder = state.Pieces.FirstOrDefault(p => p.Id == state.Ball.HolderPieceId);
+            bool cpuHoldsBall = ballHolder != null && ballHolder.Team == cpuTeam;
+
+            if (cpuHoldsBall && ballHolder != null)
+            {
+                state = HandleAttack(ballHolder, cpuTeam, state);
+            }
+            else
+            {
+                state = HandleDefense(cpuTeam, state);
+            }
+
+            // アクション完了後、デュエルが発生していなければターン終了
+            if (state.PendingDuel == null && state.ActiveTeam == cpuTeam)
+            {
+                state = _gameEngine.EndTurn();
+            }
+
             return state;
         }
-
-        // 2. デュエルが未解決なら解決
-        if (state.PendingDuel != null)
+        catch (Exception ex)
         {
-            state = _gameEngine.ResolveDuel();
-            if (state.PendingDuel != null) return state;
+            // CPUの思考・移動中に例外が発生してもゲームが停止しないようフェイルセーフ
+            var state = _gameEngine.GetCurrentState();
+            state.MatchLogs.Add($"[CPU] ⚠️ CPUの行動中に軽微なエラーが発生したため、安全にターンを交代しました: {ex.Message}");
+            if (state.ActiveTeam == cpuTeam && state.PendingDuel == null)
+            {
+                try
+                {
+                    state = _gameEngine.EndTurn();
+                }
+                catch
+                {
+                    // 万一EndTurnでも失敗した場合は現在の状態を返す
+                }
+            }
+            return state;
         }
-
-        var ballHolder = state.Pieces.FirstOrDefault(p => p.Id == state.Ball.HolderPieceId);
-        bool cpuHoldsBall = ballHolder != null && ballHolder.Team == cpuTeam;
-
-        if (cpuHoldsBall && ballHolder != null)
-        {
-            state = HandleAttack(ballHolder, cpuTeam, state);
-        }
-        else
-        {
-            state = HandleDefense(cpuTeam, state);
-        }
-
-        // アクション完了後、デュエルが発生していなければターン終了
-        if (state.PendingDuel == null && state.ActiveTeam == cpuTeam)
-        {
-            state = _gameEngine.EndTurn();
-        }
-
-        return state;
     }
 
     private GameState HandleAttack(Piece ballHolder, TeamType cpuTeam, GameState state)
@@ -78,7 +99,7 @@ public class CpuAiService : ICpuAiService
         if (state.CurrentTurnAction.CanPieceMove(ballHolder))
         {
             var bestDribbleMove = FindBestMoveToward(ballHolder.Position, targetGoal, state);
-            if (bestDribbleMove != null)
+            if (bestDribbleMove != null && ballHolder.Position.ChebyshevDistance(bestDribbleMove) >= 1 && ballHolder.Position.ChebyshevDistance(bestDribbleMove) <= 2)
             {
                 state = _gameEngine.MovePiece(ballHolder.Id, bestDribbleMove);
                 if (state.PendingDuel != null || state.ActiveTeam != cpuTeam) return state;
@@ -114,13 +135,14 @@ public class CpuAiService : ICpuAiService
         {
             var otherPlayer = state.Pieces
                 .Where(p => p.Team == cpuTeam && !p.IsGoalkeeper && p.Id != state.Ball.HolderPieceId && state.CurrentTurnAction.CanPieceMove(p))
+                .Where(p => p.Position.ChebyshevDistance(targetGoal) > 1)
                 .OrderBy(p => p.Position.ChebyshevDistance(targetGoal))
                 .FirstOrDefault();
 
             if (otherPlayer == null) break;
 
             var bestMove = FindBestMoveToward(otherPlayer.Position, targetGoal, state);
-            if (bestMove != null)
+            if (bestMove != null && otherPlayer.Position.ChebyshevDistance(bestMove) >= 1 && otherPlayer.Position.ChebyshevDistance(bestMove) <= 2)
             {
                 state = _gameEngine.MovePiece(otherPlayer.Id, bestMove);
             }
@@ -142,12 +164,14 @@ public class CpuAiService : ICpuAiService
         {
             var defender = state.Pieces
                 .Where(p => p.Team == cpuTeam && !p.IsGoalkeeper && state.CurrentTurnAction.CanPieceMove(p))
+                .Where(p => p.Position.ChebyshevDistance(targetPos) > 0) // すでにボールと同マスの選手は除外
                 .OrderBy(p => p.Position.ChebyshevDistance(targetPos))
                 .FirstOrDefault();
 
             if (defender == null) break;
 
-            if (defender.Position.ChebyshevDistance(targetPos) <= 2)
+            int dist = defender.Position.ChebyshevDistance(targetPos);
+            if (dist >= 1 && dist <= 2)
             {
                 state = _gameEngine.MovePiece(defender.Id, targetPos);
                 if (state.PendingDuel != null) return state;
@@ -155,7 +179,7 @@ public class CpuAiService : ICpuAiService
             else
             {
                 var bestMove = FindBestMoveToward(defender.Position, targetPos, state);
-                if (bestMove != null)
+                if (bestMove != null && defender.Position.ChebyshevDistance(bestMove) >= 1 && defender.Position.ChebyshevDistance(bestMove) <= 2)
                 {
                     state = _gameEngine.MovePiece(defender.Id, bestMove);
                 }

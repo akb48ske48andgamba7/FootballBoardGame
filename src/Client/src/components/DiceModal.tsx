@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
-import type { DuelContext } from '../types/game';
+import React, { useState, useEffect, useRef } from 'react';
+import type { DuelContext, GameState } from '../types/game';
 import confetti from 'canvas-confetti';
 
 interface DiceModalProps {
   duel: DuelContext;
-  onRollAndResolve: () => Promise<void>;
+  onRollAndResolve: () => Promise<GameState | null>;
+  onFinish: (updatedState: GameState) => void;
 }
 
-export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) => {
+export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve, onFinish }) => {
   const [isRolling, setIsRolling] = useState(false);
   const [displayAttackerDice, setDisplayAttackerDice] = useState<number>(1);
   const [displayDefenderDice, setDisplayDefenderDice] = useState<number>(1);
-  const [hasResolvedLocally, setHasResolvedLocally] = useState(false);
+  const [resolvedState, setResolvedState] = useState<GameState | null>(null);
+  const [resolvedDuel, setResolvedDuel] = useState<DuelContext | null>(null);
+  const [resultMessage, setResultMessage] = useState<string>('');
+  const [countdown, setCountdown] = useState<number>(3);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getDiceIcon = (num: number) => {
     switch (num) {
@@ -26,7 +31,7 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
   };
 
   const handleRoll = async () => {
-    if (isRolling || hasResolvedLocally) return;
+    if (isRolling || resolvedState) return;
     setIsRolling(true);
 
     // ダイスが高速で回転・変化するアニメーション (1.2秒間)
@@ -37,24 +42,61 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
 
     setTimeout(async () => {
       clearInterval(rollInterval);
-      await onRollAndResolve();
-      setIsRolling(false);
-      setHasResolvedLocally(true);
 
-      // ゴールや勝利時に紙吹雪
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.6 },
-      });
+      const nextState = await onRollAndResolve();
+      setIsRolling(false);
+
+      if (nextState) {
+        setResolvedState(nextState);
+
+        // 最新のログから勝敗結果を取得
+        const lastLog = nextState.matchLogs && nextState.matchLogs.length > 0
+          ? nextState.matchLogs[nextState.matchLogs.length - 1]
+          : '勝負判定が完了しました！';
+        setResultMessage(lastLog);
+
+        // 解決後の出目を反映 (もしサーバーのログやduelから取得できれば更新)
+        // デュエル解決直後の情報
+        const currentDuel = nextState.pendingDuel || duel;
+        setResolvedDuel(currentDuel);
+
+        // 紙吹雪
+        confetti({
+          particleCount: 60,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+
+        // 3秒間の保持カウントダウン開始
+        setCountdown(3);
+      }
     }, 1200);
   };
 
-  const attackerDiceVal = duel.attackerDice ?? displayAttackerDice;
-  const defenderDiceVal = duel.defenderDice ?? displayDefenderDice;
+  // カウントダウン処理 (3秒保持)
+  useEffect(() => {
+    if (!resolvedState) return;
 
-  const attackerTotal = duel.attackerAbilitySum + (isRolling ? displayAttackerDice : (duel.attackerDice ?? 0));
-  const defenderTotal = duel.defenderAbilitySum + (isRolling ? displayDefenderDice : (duel.defenderDice ?? 0));
+    if (countdown > 0) {
+      timerRef.current = setTimeout(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    } else {
+      // 3秒経過で閉じる
+      onFinish(resolvedState);
+    }
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [resolvedState, countdown, onFinish]);
+
+  const activeDuel = resolvedDuel || duel;
+  const attackerDiceVal = activeDuel.attackerDice ?? displayAttackerDice;
+  const defenderDiceVal = activeDuel.defenderDice ?? displayDefenderDice;
+
+  const attackerTotal = activeDuel.attackerAbilitySum + (isRolling ? displayAttackerDice : (activeDuel.attackerDice ?? 0));
+  const defenderTotal = activeDuel.defenderAbilitySum + (isRolling ? displayDefenderDice : (activeDuel.defenderDice ?? 0));
 
   const totalSum = Math.max(1, attackerTotal + defenderTotal);
   const attackerPercent = Math.round((attackerTotal / totalSum) * 100);
@@ -63,16 +105,16 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
   return (
     <div className="modal-overlay">
       <div className="dice-modal-content">
-        <div className={`duel-title-badge ${duel.type}`}>
-          {duel.type === 'Tackle'
+        <div className={`duel-title-badge ${activeDuel.type}`}>
+          {activeDuel.type === 'Tackle'
             ? '⚔️ TACKLE DUEL'
-            : duel.type === 'Intercept'
+            : activeDuel.type === 'Intercept'
             ? '🛡️ INTERCEPT DUEL'
             : '🔥 GOAL SHOOTOUT DUEL'}
         </div>
 
         <h3 style={{ fontSize: '20px', fontWeight: 800, margin: '6px 0' }}>
-          {duel.message}
+          {resolvedState ? (resultMessage || activeDuel.message) : activeDuel.message}
         </h3>
 
         <div className="duel-arena">
@@ -81,20 +123,20 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
             <span
               className="fighter-name"
               style={{
-                color: duel.attackingTeam === 'TeamA' ? 'var(--teamA-primary)' : 'var(--teamB-primary)',
+                color: activeDuel.attackingTeam === 'TeamA' ? 'var(--teamA-primary)' : 'var(--teamB-primary)',
               }}
             >
-              {duel.attackingTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED'}
+              {activeDuel.attackingTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED'}
               <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {duel.attackers.map((a) => `${a.name} (★${a.ability})`).join(', ')}
+                {activeDuel.attackers.map((a) => `${a.name} (★${a.ability})`).join(', ')}
               </div>
             </span>
 
             <div className="fighter-ability-badge">
-              基礎能力合計: <span className="fighter-ability-val">{duel.attackerAbilitySum}</span>
+              基礎能力合計: <span className="fighter-ability-val">{activeDuel.attackerAbilitySum}</span>
             </div>
 
-            {/* 3Dサイコロ (約2倍) */}
+            {/* 3Dサイコロ */}
             <div className={`dice-cube ${isRolling ? 'rolling' : ''}`}>
               {getDiceIcon(attackerDiceVal)}
             </div>
@@ -111,12 +153,12 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
             <span
               className="fighter-name"
               style={{
-                color: duel.defendingTeam === 'TeamA' ? 'var(--teamA-primary)' : 'var(--teamB-primary)',
+                color: activeDuel.defendingTeam === 'TeamA' ? 'var(--teamA-primary)' : 'var(--teamB-primary)',
               }}
             >
-              {duel.defendingTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED'}
+              {activeDuel.defendingTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED'}
               <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {duel.defenders.map((d) =>
+                {activeDuel.defenders.map((d) =>
                   d.abilityBonus > 0
                     ? `${d.name} (★${d.ability} + 🧤手守備+${d.abilityBonus})`
                     : `${d.name} (★${d.ability})`
@@ -124,17 +166,17 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
               </div>
             </span>
 
-            {duel.hasGkHandBonus && (
+            {activeDuel.hasGkHandBonus && (
               <div className="gk-save-bonus-badge" style={{ fontSize: '14px', padding: '4px 12px' }}>
                 🧤 GK手を使った守備: 能力+1
               </div>
             )}
 
             <div className="fighter-ability-badge">
-              能力合計: <span className="fighter-ability-val">{duel.defenderAbilitySum}</span>
+              能力合計: <span className="fighter-ability-val">{activeDuel.defenderAbilitySum}</span>
             </div>
 
-            {/* 3Dサイコロ (約2倍) */}
+            {/* 3Dサイコロ */}
             <div className={`dice-cube ${isRolling ? 'rolling' : ''}`}>
               {getDiceIcon(defenderDiceVal)}
             </div>
@@ -158,8 +200,8 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
           </div>
         </div>
 
-        {/* サイコロを振るボタン */}
-        {!duel.isResolved && !hasResolvedLocally && (
+        {/* サイコロを振るボタン / 判定完了後の3秒保持 & 閉じるボタン */}
+        {!activeDuel.isResolved && !resolvedState && (
           <button
             className="btn-roll-dice"
             onClick={handleRoll}
@@ -167,6 +209,29 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
           >
             {isRolling ? 'サイコロを振っています...' : '🎲 サイコロを振って勝負！'}
           </button>
+        )}
+
+        {resolvedState && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+            <div style={{ fontSize: '14px', color: 'var(--accent-glow)', fontWeight: 600 }}>
+              ⏳ 結果を表示中... ({countdown}秒後に盤面へ戻ります)
+            </div>
+            <button
+              className="btn-action"
+              style={{
+                padding: '10px 24px',
+                background: 'linear-gradient(135deg, #00d2ff, #0072ff)',
+                color: '#fff',
+                fontWeight: 700,
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              onClick={() => onFinish(resolvedState)}
+            >
+              OK (盤面に戻る)
+            </button>
+          </div>
         )}
       </div>
     </div>

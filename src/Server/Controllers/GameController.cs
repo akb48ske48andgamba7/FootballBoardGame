@@ -40,7 +40,9 @@ public class GameController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new ApiResponse<GameState>(false, ex.Message, null));
+            // コントローラー層でも念のためキャッチし、ゲーム状態を返却してクライアント側のフリーズを防ぐ
+            var currentState = _gameEngine.GetCurrentState();
+            return Ok(new ApiResponse<GameState>(false, $"CPU思考中にエラーが発生しました: {ex.Message}", currentState));
         }
     }
 

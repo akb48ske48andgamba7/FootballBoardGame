@@ -76,24 +76,27 @@ export const SetupModal: React.FC<SetupModalProps> = ({
     }
 
     if (type === 'fw') {
-      // FWエース型: #10(CF)が★3, #1(GK), #9, #7が★2
+      // FWエース型: #10(CF)が★3, #1(GK), #9(FW), #7(MF), #11(FW)が★2 (計4名)
       nextAbilities[10] = 3;
-      nextAbilities[1] = 2; // GK
-      nextAbilities[9] = 2;
-      nextAbilities[7] = 2;
+      nextAbilities[1] = 2;  // GK
+      nextAbilities[9] = 2;  // FW
+      nextAbilities[7] = 2;  // MF
+      nextAbilities[11] = 2; // FW/WG
     } else if (type === 'mf') {
-      // 司令塔MF型: #7(または#9)が★3, #10(FW), #1(GK), #6(DMF)が★2
+      // 司令塔MF型: #7が★3, #1(GK), #10(FW), #6(MF), #8(MF)が★2 (計4名)
       const camOrCm = currentPreset.positions.find((p) => p.positionName.includes('AM') || p.positionName.includes('CM'))?.number || 7;
       nextAbilities[camOrCm] = 3;
-      nextAbilities[1] = 2; // GK
+      nextAbilities[1] = 2;  // GK
       nextAbilities[10] = 2; // FW
-      nextAbilities[6] = 2; // MF
+      nextAbilities[6] = 2;  // MF
+      nextAbilities[8] = 2;  // MF
     } else if (type === 'gk') {
-      // 守護神GK型: #1(GK)が★3, #10(FW), #3(CB), #7(MF)が★2
-      nextAbilities[1] = 3; // GKエース守護神
+      // 守護神GK型: #1(GK)が★3, #10(FW), #3(CB), #4(CB), #7(MF)が★2 (計4名)
+      nextAbilities[1] = 3;  // GKエース守護神
       nextAbilities[10] = 2; // FW
-      nextAbilities[3] = 2; // CB
-      nextAbilities[7] = 2; // MF
+      nextAbilities[3] = 2;  // CB
+      nextAbilities[4] = 2;  // CB
+      nextAbilities[7] = 2;  // MF
     }
 
     setAbilities(nextAbilities);
@@ -104,7 +107,8 @@ export const SetupModal: React.FC<SetupModalProps> = ({
   const count2 = Object.values(abilities).filter((a) => a === 2).length;
   const count1 = Object.values(abilities).filter((a) => a === 1).length;
 
-  const isValidAllocation = count3 === 1 && count2 === 3 && count1 === 7;
+  // ★3は1名、★2は最大4名まで、合計11名
+  const isValidAllocation = count3 === 1 && count2 <= 4 && (count3 + count2 + count1 === 11);
 
   // 配置確定
   const handleConfirm = async () => {
@@ -163,21 +167,21 @@ export const SetupModal: React.FC<SetupModalProps> = ({
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <div
               className={`allocation-pill ${count3 === 1 ? 'ok' : 'ng'}`}
-              title="能力3(エース)は1名必要です"
+              title="能力3(エース)は1名設定してください"
             >
               ★3 エース: {count3}/1名
             </div>
             <div
-              className={`allocation-pill ${count2 === 3 ? 'ok' : 'ng'}`}
-              title="能力2(主力)は3名必要です"
+              className={`allocation-pill ${count2 <= 4 ? 'ok' : 'ng'}`}
+              title="能力2(主力)は最大4名まで設定できます"
             >
-              ★2 主力: {count2}/3名
+              ★2 主力: {count2}/最大4名
             </div>
             <div
-              className={`allocation-pill ${count1 === 7 ? 'ok' : 'ng'}`}
-              title="能力1(一般)は7名必要です"
+              className={`allocation-pill ok`}
+              title="残りの選手は能力1となります"
             >
-              ★1 一般: {count1}/7名
+              ★1 一般: {count1}名
             </div>
           </div>
         </div>
@@ -297,11 +301,11 @@ export const SetupModal: React.FC<SetupModalProps> = ({
           <div>
             {!isValidAllocation ? (
               <span style={{ fontSize: '13px', color: '#ff4466', fontWeight: 700 }}>
-                ⚠️ 能力値の配分が不正です (★3が1名、★2が3名、★1が7名になるように調整してください)
+                ⚠️ 能力値の配分が不正です (★3は1名、★2は最大4名まで設定可能です。現在: ★3={count3}名, ★2={count2}名)
               </span>
             ) : (
               <span style={{ fontSize: '13px', color: '#00ffaa', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Sparkles size={16} /> 理想的なフォーメーション＆能力配分が完了しました！
+                <Sparkles size={16} /> 理想的なフォーメーション＆能力配分が完了しました！ (★3: {count3}名, ★2: {count2}名, ★1: {count1}名)
               </span>
             )}
           </div>

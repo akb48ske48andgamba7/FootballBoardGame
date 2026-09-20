@@ -2,8 +2,9 @@ namespace FootballBoardGame.Server.Models;
 
 public class TurnActionState
 {
-    // 通常の移動は最大3回まで
+    // 通常の移動は最大3回まで (同一選手の複数回移動も可能)
     public const int MaxStandardMoveCount = 3;
+    public int StandardMoveCount { get; set; }
     public HashSet<string> MovedPieceIds { get; set; } = new();
 
     // パスまたはシュートは最大2回まで
@@ -18,22 +19,11 @@ public class TurnActionState
     public bool GkBonusAvailable { get; set; }
     public bool HasUsedGkBonusMove { get; set; }
 
-    public int StandardMovesRemaining => Math.Max(0, MaxStandardMoveCount - MovedPieceIds.Count);
+    public int StandardMovesRemaining => Math.Max(0, MaxStandardMoveCount - StandardMoveCount);
 
     public bool CanPieceMove(Piece piece)
     {
-        // すでに通常の3名枠で動いている場合
-        if (MovedPieceIds.Contains(piece.Id))
-        {
-            // GKであり、まだGKボーナス移動を使っていない場合は動ける
-            if (piece.IsGoalkeeper && GkBonusAvailable && !HasUsedGkBonusMove)
-            {
-                return true;
-            }
-            return false;
-        }
-
-        // 通常の3名枠が残っていれば動ける
+        // 通常の3回枠が残っていれば同一選手でも動ける
         if (StandardMovesRemaining > 0)
         {
             return true;
@@ -50,24 +40,15 @@ public class TurnActionState
 
     public void RecordMove(Piece piece)
     {
-        if (MovedPieceIds.Contains(piece.Id))
+        if (StandardMovesRemaining > 0)
         {
-            // 2回目の移動（GKボーナス）
-            if (piece.IsGoalkeeper && GkBonusAvailable && !HasUsedGkBonusMove)
-            {
-                HasUsedGkBonusMove = true;
-            }
+            StandardMoveCount++;
+            MovedPieceIds.Add(piece.Id);
         }
-        else
+        else if (piece.IsGoalkeeper && GkBonusAvailable && !HasUsedGkBonusMove)
         {
-            if (StandardMovesRemaining > 0)
-            {
-                MovedPieceIds.Add(piece.Id);
-            }
-            else if (piece.IsGoalkeeper && GkBonusAvailable && !HasUsedGkBonusMove)
-            {
-                HasUsedGkBonusMove = true;
-            }
+            HasUsedGkBonusMove = true;
+            MovedPieceIds.Add(piece.Id);
         }
     }
 

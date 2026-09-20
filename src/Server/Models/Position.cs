@@ -43,12 +43,13 @@ public record Position(int Row, int Col)
         }
     }
 
-    // ペナルティーエリア判定 (センターと上下のインサイド Row 3〜5、ゴールに最も近い列 Col 1 または Col 12)
+    // ペナルティーエリア判定 (センターと上下のインサイド Row 3〜5、双方センターサークル方向へ1列拡大: Col 1〜2 または Col 11〜12)
     public bool IsInPenaltyArea(TeamType defendingTeam, int half)
     {
         Position ownGoal = GetOwnGoal(defendingTeam, half);
-        int paCol = ownGoal.Col == 0 ? 1 : 12;
-        return Col == paCol && (Row >= 3 && Row <= 5);
+        bool isLeftGoal = ownGoal.Col == 0;
+        bool inColRange = isLeftGoal ? (Col == 1 || Col == 2) : (Col == 11 || Col == 12);
+        return inColRange && (Row >= 3 && Row <= 5);
     }
 
     // チェビシェフ距離 (縦・横・斜めを1歩として何歩で到達できるか)

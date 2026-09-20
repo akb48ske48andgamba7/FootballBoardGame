@@ -57,6 +57,8 @@ export function App() {
           setError(null);
         } catch (err: any) {
           setError(err.message);
+          // 万一の失敗時も最新状態を再同期
+          loadGameState();
         } finally {
           setIsCpuThinking(false);
           isCpuRunningRef.current = false;
@@ -126,13 +128,14 @@ export function App() {
     }
   };
 
-  const handleResolveDuel = async () => {
+  const handleResolveDuel = async (): Promise<GameState | null> => {
     try {
       const updated = await api.resolveDuel();
-      setState(updated);
       setError(null);
+      return updated;
     } catch (err: any) {
       setError(err.message);
+      return null;
     }
   };
 
@@ -246,12 +249,40 @@ export function App() {
           }}
         >
           <span>⚠️ {error}</span>
-          <button
-            style={{ background: 'none', color: '#fff', fontSize: '16px' }}
-            onClick={() => setError(null)}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {state.activeTeam === 'TeamB' && (
+              <button
+                className="btn-action"
+                style={{
+                  fontSize: '12px',
+                  padding: '4px 10px',
+                  background: 'linear-gradient(135deg, #ff3366, #ff6688)',
+                  color: '#fff',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                }}
+                onClick={async () => {
+                  try {
+                    const updated = await api.endTurn();
+                    setState(updated);
+                    setError(null);
+                  } catch (e: any) {
+                    loadGameState();
+                  }
+                }}
+              >
+                手番を交代して再開
+              </button>
+            )}
+            <button
+              style={{ background: 'none', color: '#fff', fontSize: '16px', border: 'none', cursor: 'pointer' }}
+              onClick={() => setError(null)}
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
@@ -296,6 +327,10 @@ export function App() {
         <DiceModal
           duel={state.pendingDuel}
           onRollAndResolve={handleResolveDuel}
+          onFinish={(updatedState) => {
+            setState(updatedState);
+            setError(null);
+          }}
         />
       )}
 
