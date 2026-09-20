@@ -14,7 +14,7 @@ export type GamePhase =
 
 export interface Position {
   row: number; // 1〜7 (縦7分割)
-  col: number; // 1〜10 (横10マス)
+  col: number; // 1〜12 (横12マス)
 }
 
 export interface Piece {
@@ -36,7 +36,11 @@ export interface Ball {
 export interface TurnActionState {
   maxStandardMoveCount: number;
   movedPieceIds: string[];
+  maxPassOrShotCount: number;
+  passOrShotCount: number;
   hasPassedOrShot: boolean;
+  remainingPassOrShots: number;
+  canPassOrShot: boolean;
   gkBonusAvailable: boolean;
   hasUsedGkBonusMove: boolean;
   standardMovesRemaining: number;
@@ -49,6 +53,8 @@ export interface DuelParticipant {
   name: string;
   number: number;
   ability: number;
+  abilityBonus: number;
+  totalAbility: number;
   isGoalkeeper: boolean;
 }
 
@@ -70,6 +76,7 @@ export interface DuelContext {
   winner: TeamType | null;
   isResolved: boolean;
   message: string;
+  hasGkHandBonus?: boolean;
 }
 
 export interface GameState {

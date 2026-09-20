@@ -15,10 +15,10 @@
   gap: 8px;
 }
 
-/* 左右ゴールエリア (Col 0 / Col 11) - 中央レーン Row 4 に位置 */
+/* 左右ゴールエリア (Col 0 / Col 13) - 中央レーン Row 4 に位置 */
 .goal-zone-lateral {
   width: 46px;
-  height: 66px;
+  height: 64px;
   background: rgba(255, 255, 255, 0.08);
   border: 2px dashed rgba(255, 255, 255, 0.4);
   border-radius: 8px;
@@ -51,12 +51,12 @@
   color: #ffd700;
 }
 
-/* サッカーピッチ本体 (縦7行 x 横10列) */
-.pitch-grid-7x10 {
+/* サッカーピッチ本体 (縦7行 x 横12列) */
+.pitch-grid-7x12 {
   position: relative;
   display: grid;
-  grid-template-rows: repeat(7, 66px);
-  grid-template-columns: repeat(10, 70px);
+  grid-template-rows: repeat(7, 64px);
+  grid-template-columns: repeat(12, 64px);
   gap: 4px;
   padding: 8px;
   background: #092c19;
@@ -65,6 +65,36 @@
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
+
+/* ペナルティエリア枠線 (左側: Col 1, Row 3〜5 / 右側: Col 12, Row 3〜5) */
+.pitch-cell.penalty-area-left {
+  background: rgba(0, 180, 255, 0.08) !important;
+  border-left: 2px solid rgba(255, 255, 255, 0.6);
+}
+.pitch-cell.penalty-area-left.pa-top {
+  border-top: 2px solid rgba(255, 255, 255, 0.6);
+}
+.pitch-cell.penalty-area-left.pa-bottom {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+}
+.pitch-cell.penalty-area-left.pa-right {
+  border-right: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.pitch-cell.penalty-area-right {
+  background: rgba(255, 50, 100, 0.08) !important;
+  border-right: 2px solid rgba(255, 255, 255, 0.6);
+}
+.pitch-cell.penalty-area-right.pa-top {
+  border-top: 2px solid rgba(255, 255, 255, 0.6);
+}
+.pitch-cell.penalty-area-right.pa-bottom {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+}
+.pitch-cell.penalty-area-right.pa-left {
+  border-left: 2px solid rgba(255, 255, 255, 0.6);
+}
+
 
 /* ハーフウェーライン (Col 5 と Col 6 の間の垂直線) */
 .pitch-vertical-half-line {

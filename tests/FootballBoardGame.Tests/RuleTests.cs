@@ -101,4 +101,71 @@ public class RuleTests
         // CPUが行動してターンを終了し、手番がTeamAに戻るか、あるいはデュエルが発生していることを確認
         Assert.True(afterCpuState.ActiveTeam == TeamType.TeamA || afterCpuState.PendingDuel != null);
     }
+
+    [Fact]
+    public void TurnActions_ShouldAllowUpToThreeMovesAndTwoPassOrShots()
+    {
+        var gameEngine = new GameEngineService(_diceService, _offsideService);
+        var state = gameEngine.GetCurrentState();
+        gameEngine.SetupTeam(TeamType.TeamA, state.Pieces.Where(p => p.Team == TeamType.TeamA)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+        gameEngine.SetupTeam(TeamType.TeamB, state.Pieces.Where(p => p.Team == TeamType.TeamB)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+
+        var teamAPieces = gameEngine.GetCurrentState().Pieces.Where(p => p.Team == TeamType.TeamA).ToList();
+
+        // 3人の異なる駒を移動
+        gameEngine.MovePiece(teamAPieces[0].Id, new Position(teamAPieces[0].Position.Row + 1, teamAPieces[0].Position.Col));
+        gameEngine.MovePiece(teamAPieces[1].Id, new Position(teamAPieces[1].Position.Row + 1, teamAPieces[1].Position.Col));
+        gameEngine.MovePiece(teamAPieces[2].Id, new Position(teamAPieces[2].Position.Row + 1, teamAPieces[2].Position.Col));
+
+        // 4人目の移動は例外
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            gameEngine.MovePiece(teamAPieces[3].Id, new Position(teamAPieces[3].Position.Row + 1, teamAPieces[3].Position.Col));
+        });
+
+        var turnState = gameEngine.GetCurrentState().CurrentTurnAction;
+        Assert.Equal(3, turnState.MovedPieceIds.Count);
+        Assert.Equal(0, turnState.StandardMovesRemaining);
+        Assert.Equal(2, turnState.RemainingPassOrShots);
+    }
+
+    [Fact]
+    public void Goalkeeper_InPenaltyArea_ShouldTriggerShotDuelAndGetAbilityPlusOne()
+    {
+        var gameEngine = new GameEngineService(_diceService, _offsideService);
+        var state = gameEngine.GetCurrentState();
+        gameEngine.SetupTeam(TeamType.TeamA, state.Pieces.Where(p => p.Team == TeamType.TeamA)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+        gameEngine.SetupTeam(TeamType.TeamB, state.Pieces.Where(p => p.Team == TeamType.TeamB)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+
+        var currentState = gameEngine.GetCurrentState();
+
+        // TeamBのGKを (Row 3, Col 12) に配置 (ペナルティーエリア内だがゴールの真ん前 Row 4 ではない)
+        var bGk = currentState.Pieces.First(p => p.Team == TeamType.TeamB && p.IsGoalkeeper);
+        bGk.Position = new Position(3, 12);
+
+        // ボール保持者を TeamA の選手にして (Row 4, Col 10) に配置 (直線上にGKはいない)
+        var shooter = currentState.Pieces.First(p => p.Team == TeamType.TeamA && p.Number == 10);
+        shooter.Position = new Position(4, 10);
+        currentState.Ball.HolderPieceId = shooter.Id;
+        currentState.Ball.Position = shooter.Position;
+
+        // シュート実行 (GoalB: Row 4, Col 13)
+        var afterShotState = gameEngine.PassOrShot(Position.GoalB);
+
+        // 直線上にGKはいなくても、ペナルティーエリア内にいるため勝負が発生する
+        Assert.NotNull(afterShotState.PendingDuel);
+        var duel = afterShotState.PendingDuel;
+        Assert.Equal(DuelType.Shot, duel.Type);
+        Assert.Contains(duel.Defenders, d => d.PieceId == bGk.Id);
+        Assert.True(duel.HasGkHandBonus);
+
+        var gkParticipant = duel.Defenders.First(d => d.PieceId == bGk.Id);
+        Assert.Equal(1, gkParticipant.AbilityBonus);
+        Assert.Equal(bGk.Ability + 1, gkParticipant.TotalAbility);
+    }
 }
+

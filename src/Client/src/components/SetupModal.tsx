@@ -19,7 +19,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
 
   const isHalf1 = state.half === 1;
   const isLeftHalf = (isHalf1 && currentTeam === 'TeamA') || (!isHalf1 && currentTeam === 'TeamB');
-  const allowedCols = isLeftHalf ? 'Col 1〜5 (左陣)' : 'Col 6〜10 (右陣)';
+  const allowedCols = isLeftHalf ? 'Col 1〜6 (左陣)' : 'Col 7〜12 (右陣)';
 
   const isCpuTeam = state.mode === 'PvC' && currentTeam === 'TeamB';
   const teamName = currentTeam === 'TeamA' ? 'TEAM BLUE (あなた)' : isCpuTeam ? 'TEAM RED (🤖 CPU)' : 'TEAM RED (チームB)';
@@ -41,7 +41,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
         </div>
 
         <p className="setup-instructions">
-          自陣（縦7マス × 横5マス / <strong>{allowedCols}</strong>）に11名を配置します。
+          自陣（縦7マス × 横6マス / <strong>{allowedCols}</strong>）に11名を配置します。
           <br />
           バランス良く配置された「デフォルト・タクティクス」を適用するか、配置を確定して進んでください。
         </p>

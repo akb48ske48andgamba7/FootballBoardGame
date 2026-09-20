@@ -13,14 +13,17 @@ public class DuelParticipant
     public string Name { get; set; } = string.Empty;
     public int Number { get; set; }
     public int Ability { get; set; }
+    public int AbilityBonus { get; set; } // シュート時のGK手を使ったセーブなどで+1
     public bool IsGoalkeeper { get; set; }
+
+    public int TotalAbility => Ability + AbilityBonus;
 }
 
 public class DuelContext
 {
     public Guid DuelId { get; set; } = Guid.NewGuid();
     public DuelType Type { get; set; }
-    public Position DuelPosition { get; set; } = new(1, 1);
+    public Position DuelPosition { get; set; } = new(4, 1);
     public Position? PassTargetPosition { get; set; }
 
     public TeamType AttackingTeam { get; set; }
@@ -29,8 +32,8 @@ public class DuelContext
     public List<DuelParticipant> Attackers { get; set; } = new();
     public List<DuelParticipant> Defenders { get; set; } = new();
 
-    public int AttackerAbilitySum => Attackers.Sum(p => p.Ability);
-    public int DefenderAbilitySum => Defenders.Sum(p => p.Ability);
+    public int AttackerAbilitySum => Attackers.Sum(p => p.TotalAbility);
+    public int DefenderAbilitySum => Defenders.Sum(p => p.TotalAbility);
 
     public int? AttackerDice { get; set; }
     public int? DefenderDice { get; set; }
@@ -41,4 +44,5 @@ public class DuelContext
     public TeamType? Winner { get; set; }
     public bool IsResolved => Winner.HasValue;
     public string Message { get; set; } = string.Empty;
+    public bool HasGkHandBonus => Defenders.Any(d => d.IsGoalkeeper && d.AbilityBonus > 0);
 }

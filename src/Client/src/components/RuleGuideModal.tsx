@@ -22,10 +22,10 @@ export const RuleGuideModal: React.FC<RuleGuideModalProps> = ({ onClose }) => {
 
         <div style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--text-main)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <h4 style={{ color: '#00d2ff', fontSize: '14px', marginBottom: '4px' }}>⚽ 横向きピッチ (縦7分割 × 横10マス)</h4>
+            <h4 style={{ color: '#00d2ff', fontSize: '14px', marginBottom: '4px' }}>⚽ 横向きピッチ (縦7分割 × 横12マス)</h4>
             <p>
-              ・ピッチは横10マス（進行方向 Col 1〜10）× 縦7分割レーン（上サイド〜センター〜下サイド）。<br />
-              ・ゴールはピッチ左右両端（Col 0 および Col 11）の中央レーン（Row 4）外側に配置。<br />
+              ・ピッチは横12マス（進行方向 Col 1〜12）× 縦7分割レーン（上サイド〜センター〜下サイド）。<br />
+              ・ゴールはピッチ左右両端（Col 0 および Col 13）の中央レーン（Row 4）外側に配置。<br />
               ・各チーム11名 ＋ ボール1個（能力3×1名、能力2×3名、能力1×7名。1名がGK）。
             </p>
           </div>
@@ -41,15 +41,17 @@ export const RuleGuideModal: React.FC<RuleGuideModalProps> = ({ onClose }) => {
           <div>
             <h4 style={{ color: '#00ffaa', fontSize: '14px', marginBottom: '4px' }}>🏃 1ターンのアクション (順序自由)</h4>
             <p>
-              1. <strong>移動</strong>: 最大2名まで、前後左右斜めに「最大2マス」移動（味方・相手のすり抜け可能）。ボール保持者の移動はドリブルになります。<br />
-              2. <strong>パス / シュート</strong>: ボール保持者が縦横斜めの直線状に無制限距離で出せます。ゴール枠へ向かう直線パスは「シュート」になります。
+              1. <strong>移動</strong>: 最大3名まで、前後左右斜めに「最大2マス」移動（味方・相手のすり抜け可能）。ボール保持者の移動はドリブルになります。<br />
+              2. <strong>パス / シュート</strong>: 1ターンに最大2回まで、縦横斜めの直線状に無制限距離で出せます。ゴール枠へ向かう直線パスは「シュート」になります。
             </p>
           </div>
 
           <div>
-            <h4 style={{ color: '#ffd700', fontSize: '14px', marginBottom: '4px' }}>🧤 GK（ゴールキーパー）の特権</h4>
+            <h4 style={{ color: '#ffd700', fontSize: '14px', marginBottom: '4px' }}>🧤 GK（ゴールキーパー）とペナルティエリア</h4>
             <p>
-              GKがボールを持っているターンに限り、通常の2名移動・1回パスに加え、<strong>「GK自身を追加で1回移動」</strong>させることができます。
+              ・<strong>ペナルティエリア内セーブ保証</strong>: センターと上下インサイドのゴール最前列（Row 3〜5, Col 1 または 12）にGKがいる際、ゴールへのシュートに対して直線上にいなくても必ずGKとの勝負が発生します。<br />
+              ・<strong>GK手を使ったセーブ (能力+1)</strong>: ゴールに向かうシュートが打たれたときのみ、守備側GKは手を使って守れるルールとして能力値が「+1」されます。<br />
+              ・<strong>GKボーナス移動</strong>: GKがボールを保持しているターンに限り、追加でGK自身を1回移動できます。
             </p>
           </div>
 

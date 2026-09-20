@@ -116,12 +116,22 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve }) 
             >
               {duel.defendingTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED'}
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                {duel.defenders.map((d) => `${d.name} (★${d.ability})`).join(', ')}
+                {duel.defenders.map((d) =>
+                  d.abilityBonus > 0
+                    ? `${d.name} (★${d.ability} + 🧤手守備+${d.abilityBonus})`
+                    : `${d.name} (★${d.ability})`
+                ).join(', ')}
               </div>
             </span>
 
+            {duel.hasGkHandBonus && (
+              <div className="gk-save-bonus-badge">
+                🧤 GK手を使った守備: 能力+1
+              </div>
+            )}
+
             <div className="fighter-ability-badge">
-              基礎能力合計: <span className="fighter-ability-val">{duel.defenderAbilitySum}</span>
+              能力合計: <span className="fighter-ability-val">{duel.defenderAbilitySum}</span>
             </div>
 
             {/* 3Dサイコロ */}

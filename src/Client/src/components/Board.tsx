@@ -40,12 +40,12 @@ export const Board: React.FC<BoardProps> = ({
   };
 
   // 攻撃目標ゴール (横方向)
-  // 前半: TeamAは右 (Row 4, Col 11)、TeamBは左 (Row 4, Col 0)
-  // 後半: TeamAは左 (Row 4, Col 0)、TeamBは右 (Row 4, Col 11)
+  // 前半: TeamAは右 (Row 4, Col 13)、TeamBは左 (Row 4, Col 0)
+  // 後半: TeamAは左 (Row 4, Col 0)、TeamBは右 (Row 4, Col 13)
   const targetGoalPos: Position =
     (state.half === 1 && state.activeTeam === 'TeamA') ||
     (state.half === 2 && state.activeTeam === 'TeamB')
-      ? { row: 4, col: 11 }
+      ? { row: 4, col: 13 }
       : { row: 4, col: 0 };
 
   // 移動可能マスの計算 (最大2マス)
@@ -119,7 +119,7 @@ export const Board: React.FC<BoardProps> = ({
         {/* レーンガイド (左側) */}
         <div className="lane-labels-vertical">
           {lanes.map((lane, idx) => (
-            <div key={idx} style={{ height: '66px', display: 'flex', alignItems: 'center' }}>
+            <div key={idx} style={{ height: '64px', display: 'flex', alignItems: 'center' }}>
               {lane}
             </div>
           ))}
@@ -140,8 +140,8 @@ export const Board: React.FC<BoardProps> = ({
           {isGoalTargetable({ row: 4, col: 0 }) ? '⚽ SHOOT' : 'GOAL A'}
         </div>
 
-        {/* 横長サッカーピッチ本体 (縦7行 x 横10列) */}
-        <div className="pitch-grid-7x10">
+        {/* 横長サッカーピッチ本体 (縦7行 x 横12列) */}
+        <div className="pitch-grid-7x12">
           {/* ハーフウェーライン (縦の中央線) & センターサークル */}
           <div className="pitch-vertical-half-line" />
           <div className="pitch-center-circle" />
@@ -152,19 +152,29 @@ export const Board: React.FC<BoardProps> = ({
             <div
               className="offside-laser-vertical"
               style={{
-                left: `${(offsideCol - (isAttackingRightward ? 0 : 1)) * 74 + 8}px`,
+                left: `${(offsideCol - (isAttackingRightward ? 0 : 1)) * 68 + 8}px`,
               }}
             >
               <span className="offside-vertical-label">OFFSIDE</span>
             </div>
           )}
 
-          {/* 縦7 x 横10 グリッド描画 */}
+          {/* 縦7 x 横12 グリッド描画 */}
           {Array.from({ length: 7 }, (_, r) => r + 1).map((row) =>
-            Array.from({ length: 10 }, (_, c) => c + 1).map((col) => {
+            Array.from({ length: 12 }, (_, c) => c + 1).map((col) => {
               const isStripeEven = (row + col) % 2 === 0;
               const validMove = isCellValidMove(row, col);
               const validPass = isCellValidPass(row, col);
+
+              // ペナルティエリア判定 (左: Col 1, Row 3〜5 / 右: Col 12, Row 3〜5)
+              const isLeftPA = col === 1 && row >= 3 && row <= 5;
+              const isRightPA = col === 12 && row >= 3 && row <= 5;
+              const paLeftClass = isLeftPA
+                ? `penalty-area-left ${row === 3 ? 'pa-top' : ''} ${row === 5 ? 'pa-bottom' : ''} pa-right`
+                : '';
+              const paRightClass = isRightPA
+                ? `penalty-area-right ${row === 3 ? 'pa-top' : ''} ${row === 5 ? 'pa-bottom' : ''} pa-left`
+                : '';
 
               const piecesAtCell = state.pieces.filter(
                 (p) => p.position.row === row && p.position.col === col
@@ -186,7 +196,7 @@ export const Board: React.FC<BoardProps> = ({
                     isStripeEven ? 'stripe-even' : 'stripe-odd'
                   } ${validMove ? 'valid-move' : ''} ${validPass ? 'valid-pass' : ''} ${
                     isPassMode && isOffsideCell ? 'is-offside-cell' : ''
-                  }`}
+                  } ${paLeftClass} ${paRightClass}`}
                   onClick={() => handleCellClick(row, col)}
                 >
                   {piecesAtCell.map((piece) => (
@@ -213,19 +223,19 @@ export const Board: React.FC<BoardProps> = ({
           )}
         </div>
 
-        {/* 右側ゴール (Col 11, Row 4) */}
+        {/* 右側ゴール (Col 13, Row 4) */}
         <div
           className={`goal-zone-lateral right ${
-            isGoalTargetable({ row: 4, col: 11 }) ? 'targetable' : ''
+            isGoalTargetable({ row: 4, col: 13 }) ? 'targetable' : ''
           }`}
           onClick={() => {
-            if (isGoalTargetable({ row: 4, col: 11 })) {
-              onPassOrShot(4, 11);
+            if (isGoalTargetable({ row: 4, col: 13 })) {
+              onPassOrShot(4, 13);
             }
           }}
           title="右ゴール (Goal B)"
         >
-          {isGoalTargetable({ row: 4, col: 11 }) ? '⚽ SHOOT' : 'GOAL B'}
+          {isGoalTargetable({ row: 4, col: 13 }) ? '⚽ SHOOT' : 'GOAL B'}
         </div>
       </div>
     </div>
