@@ -18,6 +18,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IDiceService, DiceService>();
 builder.Services.AddSingleton<IOffsideRuleService, OffsideRuleService>();
 builder.Services.AddSingleton<IGameEngineService, GameEngineService>();
+builder.Services.AddSingleton<ICpuAiService, CpuAiService>();
 
 // CORS設定 (開発時のVite用)
 builder.Services.AddCors(options =>

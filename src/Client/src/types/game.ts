@@ -1,5 +1,7 @@
 export type TeamType = 'TeamA' | 'TeamB';
 
+export type GameMode = 'PvP' | 'PvC';
+
 export type GamePhase =
   | 'SetupFirstHalfA'
   | 'SetupFirstHalfB'
@@ -11,8 +13,8 @@ export type GamePhase =
   | 'GameOver';
 
 export interface Position {
-  row: number;
-  col: number;
+  row: number; // 1〜7 (縦7分割)
+  col: number; // 1〜10 (横10マス)
 }
 
 export interface Piece {
@@ -73,6 +75,7 @@ export interface DuelContext {
 export interface GameState {
   gameId: string;
   phase: GamePhase;
+  mode: GameMode;
   activeTeam: TeamType;
   half: number;
   turn: number;

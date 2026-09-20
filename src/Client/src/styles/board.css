@@ -1,68 +1,62 @@
-/* ピッチ外枠・コンテナ */
+/* ピッチ外枠・コンテナ (横長ピッチ) */
 .pitch-wrapper {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: 12px auto;
+  margin: 8px auto;
   width: fit-content;
 }
 
-/* レーンガイドヘッダー */
-.lane-headers {
-  display: grid;
-  grid-template-columns: repeat(5, 76px);
-  gap: 4px;
-  margin-bottom: 6px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+/* 左右ゴールとピッチの横並びレイアウト */
+.pitch-horizontal-arena {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* ゴールエリア (Row 0 / Row 11) */
-.goal-zone {
-  width: 76px;
-  height: 40px;
+/* 左右ゴールエリア (Col 0 / Col 11) - 中央レーン Row 4 に位置 */
+.goal-zone-lateral {
+  width: 46px;
+  height: 66px;
   background: rgba(255, 255, 255, 0.08);
   border: 2px dashed rgba(255, 255, 255, 0.4);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-size: 11px;
+  font-weight: 800;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 2px;
   transition: all 0.3s;
   cursor: pointer;
   z-index: 5;
 }
 
-.goal-zone.top {
-  margin-bottom: 6px;
-  border-bottom: 3px solid #ff4466;
+.goal-zone-lateral.left {
+  border-left: 3px solid var(--teamA-primary);
 }
 
-.goal-zone.bottom {
-  margin-top: 6px;
-  border-top: 3px solid #00ddff;
+.goal-zone-lateral.right {
+  border-right: 3px solid var(--teamB-primary);
 }
 
-.goal-zone.targetable {
-  background: rgba(255, 215, 0, 0.25);
+.goal-zone-lateral.targetable {
+  background: rgba(255, 215, 0, 0.3);
   border: 2px solid #ffd700;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.7);
   animation: pulse-glow 1.2s infinite ease-in-out;
+  color: #ffd700;
 }
 
-/* サッカーピッチ本体 (10行 x 5列) */
-.pitch-grid {
+/* サッカーピッチ本体 (縦7行 x 横10列) */
+.pitch-grid-7x10 {
   position: relative;
   display: grid;
-  grid-template-rows: repeat(10, 68px);
-  grid-template-columns: repeat(5, 76px);
+  grid-template-rows: repeat(7, 66px);
+  grid-template-columns: repeat(10, 70px);
   gap: 4px;
   padding: 8px;
   background: #092c19;
@@ -72,15 +66,15 @@
   overflow: hidden;
 }
 
-/* ハーフウェーライン (Row 5 と Row 6 の間) */
-.pitch-half-line {
+/* ハーフウェーライン (Col 5 と Col 6 の間の垂直線) */
+.pitch-vertical-half-line {
   position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 2px;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
   background: var(--pitch-line);
-  transform: translateY(-50%);
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -109,12 +103,12 @@
   pointer-events: none;
 }
 
-/* オフサイドライン */
-.offside-laser-line {
+/* 縦方向のオフサイドライン (相手最後尾DFのCol) */
+.offside-laser-vertical {
   position: absolute;
-  left: 0;
-  right: 0;
-  height: 3px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
   background: var(--highlight-offside-line);
   box-shadow: 0 0 12px var(--highlight-offside-line), 0 0 20px var(--highlight-offside-line);
   z-index: 10;
@@ -122,17 +116,31 @@
   animation: laser-glow 1s infinite alternate;
 }
 
-.offside-label {
+.offside-vertical-label {
   position: absolute;
-  right: 6px;
-  top: -18px;
+  top: 4px;
+  left: 6px;
   background: var(--highlight-offside-line);
   color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* 縦7分割レーンガイド (ピッチ左側) */
+.lane-labels-vertical {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  height: 100%;
+  padding-right: 4px;
   font-size: 10px;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  text-align: right;
+  line-height: 1;
 }
 
 /* グリッドマス (Cell) */
@@ -146,7 +154,6 @@
   cursor: pointer;
 }
 
-/* 芝生のゼブラストライプ */
 .pitch-cell.stripe-even {
   background-color: var(--pitch-stripe-1);
 }
@@ -190,8 +197,8 @@
 /* 選手コマ (Piece) */
 .piece-token {
   position: relative;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -208,12 +215,11 @@
 }
 
 .piece-token.selected {
-  transform: translateY(-6px) scale(1.18);
+  transform: translateY(-5px) scale(1.18);
   box-shadow: 0 0 0 3px #ffffff, 0 8px 24px rgba(0, 240, 255, 0.8);
   z-index: 30;
 }
 
-/* チームごとのカラーリング */
 .piece-token.team-A {
   background: var(--teamA-bg);
   border: 2px solid #a6e3e9;
@@ -226,7 +232,6 @@
   color: #ffffff;
 }
 
-/* 能力値の視覚判別要件 */
 /* 能力1: シンプルな枠線、★1 */
 .piece-token.ability-1 {
   border-width: 2px;
@@ -266,7 +271,6 @@
   border: 1px solid #ffd700;
 }
 
-/* 背番号 & 能力星 */
 .piece-number {
   font-size: 15px;
   font-weight: 800;
@@ -286,8 +290,8 @@
 .piece-token.has-ball::before {
   content: '';
   position: absolute;
-  width: 64px;
-  height: 64px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   border: 2px dashed #ffd700;
   animation: spin 6s linear infinite;
@@ -296,8 +300,8 @@
 
 .ball-indicator-icon {
   position: absolute;
-  bottom: -6px;
-  right: -6px;
+  bottom: -5px;
+  right: -5px;
   width: 20px;
   height: 20px;
   background: #ffffff;
@@ -316,7 +320,6 @@
   100% { transform: rotate(360deg); }
 }
 
-/* ルーズボール (ピッチ上に置かれたボール) */
 .loose-ball {
   width: 28px;
   height: 28px;

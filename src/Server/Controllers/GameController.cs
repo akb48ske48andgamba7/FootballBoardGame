@@ -9,16 +9,39 @@ namespace FootballBoardGame.Server.Controllers;
 public class GameController : ControllerBase
 {
     private readonly IGameEngineService _gameEngine;
+    private readonly ICpuAiService _cpuAiService;
 
-    public GameController(IGameEngineService gameEngine)
+    public GameController(IGameEngineService gameEngine, ICpuAiService cpuAiService)
     {
         _gameEngine = gameEngine;
+        _cpuAiService = cpuAiService;
     }
 
     [HttpGet]
     public ActionResult<ApiResponse<GameState>> GetState()
     {
         return Ok(new ApiResponse<GameState>(true, "ゲーム状態を取得しました。", _gameEngine.GetCurrentState()));
+    }
+
+    [HttpPost("mode")]
+    public ActionResult<ApiResponse<GameState>> SetGameMode([FromBody] SetGameModeRequest request)
+    {
+        var state = _gameEngine.SetGameMode(request.Mode);
+        return Ok(new ApiResponse<GameState>(true, "対戦モードを更新しました。", state));
+    }
+
+    [HttpPost("cpu/step")]
+    public ActionResult<ApiResponse<GameState>> ExecuteCpuStep()
+    {
+        try
+        {
+            var state = _cpuAiService.ExecuteCpuStep();
+            return Ok(new ApiResponse<GameState>(true, "CPUの手番を実行しました。", state));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ApiResponse<GameState>(false, ex.Message, null));
+        }
     }
 
     [HttpPost("reset")]

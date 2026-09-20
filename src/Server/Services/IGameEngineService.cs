@@ -6,6 +6,7 @@ public interface IGameEngineService
 {
     GameState GetCurrentState();
     GameState ResetGame();
+    GameState SetGameMode(GameMode mode);
     GameState SetupTeam(TeamType team, List<PiecePlacementDto> placements);
     GameState ApplyDefaultFormation(TeamType team);
     GameState MovePiece(string pieceId, Position targetPosition);

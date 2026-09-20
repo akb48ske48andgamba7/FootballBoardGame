@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { GameState, TeamType } from './types/game';
+import { useEffect, useState, useRef } from 'react';
+import type { GameMode, GameState, TeamType } from './types/game';
 import { api } from './services/api';
 import { Header } from './components/Header';
 import { ScoreBoard } from './components/ScoreBoard';
@@ -18,15 +18,57 @@ export function App() {
   const [state, setState] = useState<GameState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCpuThinking, setIsCpuThinking] = useState(false);
 
   const [selectedPieceId, setSelectedPieceId] = useState<string | null>(null);
   const [isPassMode, setIsPassMode] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
 
+  const isCpuRunningRef = useRef(false);
+
   // 初期ロード
   useEffect(() => {
     loadGameState();
   }, []);
+
+  // CPU手番の自動実行エフェクト
+  useEffect(() => {
+    if (!state || state.mode !== 'PvC' || isCpuRunningRef.current) return;
+
+    // CPUの初期配置フェーズ
+    const isCpuSetup =
+      state.phase === 'SetupFirstHalfB' || state.phase === 'SetupSecondHalfB';
+
+    // CPUのターン（試合中かつ未解決デュエルなし）
+    const isCpuTurn =
+      (state.phase === 'FirstHalf' || state.phase === 'SecondHalf') &&
+      state.activeTeam === 'TeamB' &&
+      state.pendingDuel === null;
+
+    if (isCpuSetup || isCpuTurn) {
+      isCpuRunningRef.current = true;
+      setIsCpuThinking(true);
+
+      const delayMs = isCpuSetup ? 600 : 900;
+      const timer = setTimeout(async () => {
+        try {
+          const updated = await api.executeCpuStep();
+          setState(updated);
+          setError(null);
+        } catch (err: any) {
+          setError(err.message);
+        } finally {
+          setIsCpuThinking(false);
+          isCpuRunningRef.current = false;
+        }
+      }, delayMs);
+
+      return () => {
+        clearTimeout(timer);
+        isCpuRunningRef.current = false;
+      };
+    }
+  }, [state]);
 
   const loadGameState = async () => {
     try {
@@ -38,6 +80,16 @@ export function App() {
       setError(err.message || 'ゲームの初期化に失敗しました。');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSelectMode = async (mode: GameMode) => {
+    try {
+      const updated = await api.setGameMode(mode);
+      setState(updated);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -154,15 +206,19 @@ export function App() {
     );
   }
 
-  const isSetupPhase =
+  // 人間のプレイヤーが操作すべき初期配置フェーズか
+  const isHumanSetupPhase =
     state.phase === 'SetupFirstHalfA' ||
-    state.phase === 'SetupFirstHalfB' ||
     state.phase === 'SetupSecondHalfA' ||
-    state.phase === 'SetupSecondHalfB';
+    (state.mode === 'PvP' && (state.phase === 'SetupFirstHalfB' || state.phase === 'SetupSecondHalfB'));
+
+  const isUserTurn = state.mode === 'PvP' || state.activeTeam === 'TeamA';
 
   return (
     <div className="game-root">
       <Header
+        mode={state.mode}
+        onSelectMode={handleSelectMode}
         onReset={handleResetGame}
         onOpenRules={() => setIsRulesOpen(true)}
       />
@@ -193,25 +249,38 @@ export function App() {
         </div>
       )}
 
-      <ScoreBoard state={state} />
+      <ScoreBoard state={state} isCpuThinking={isCpuThinking} />
 
       <ControlBar
         state={state}
         isPassMode={isPassMode}
         onTogglePassMode={() => {
+          if (!isUserTurn) return;
           setIsPassMode(!isPassMode);
           setSelectedPieceId(null);
         }}
-        onEndTurn={handleEndTurn}
+        onEndTurn={() => {
+          if (!isUserTurn) return;
+          handleEndTurn();
+        }}
       />
 
       <Board
         state={state}
         selectedPieceId={selectedPieceId}
         isPassMode={isPassMode}
-        onSelectPiece={handleSelectPiece}
-        onMovePiece={handleMovePiece}
-        onPassOrShot={handlePassOrShot}
+        onSelectPiece={(id) => {
+          if (!isUserTurn) return;
+          handleSelectPiece(id);
+        }}
+        onMovePiece={(id, r, c) => {
+          if (!isUserTurn) return;
+          handleMovePiece(id, r, c);
+        }}
+        onPassOrShot={(r, c) => {
+          if (!isUserTurn) return;
+          handlePassOrShot(r, c);
+        }}
       />
 
       <MatchLogs logs={state.matchLogs} />
@@ -224,8 +293,8 @@ export function App() {
         />
       )}
 
-      {/* 初期配置モーダル */}
-      {isSetupPhase && (
+      {/* 初期配置モーダル (人間プレイヤーの手番時のみ表示) */}
+      {isHumanSetupPhase && (
         <SetupModal
           state={state}
           onApplyDefault={handleApplyDefaultSetup}
@@ -237,7 +306,6 @@ export function App() {
       <GoalModal
         state={state}
         onNextHalf={() => {
-          // ハーフタイムから後半配置へ進む処理
           handleApplyDefaultSetup('TeamA');
         }}
         onRestart={handleResetGame}

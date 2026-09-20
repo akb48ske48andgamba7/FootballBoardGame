@@ -2,19 +2,19 @@ namespace FootballBoardGame.Server.Models;
 
 public record Position(int Row, int Col)
 {
-    // ピッチ内部: Row 1〜10, Col 1〜5
-    // 横5レーン: 1:左サイド, 2:左ハーフ, 3:センター, 4:右ハーフ, 5:右サイド
-    public bool IsInsidePitch => Row >= 1 && Row <= 10 && Col >= 1 && Col <= 5;
+    // ピッチ内部: 縦7分割 (Row 1〜7), 横10マス (Col 1〜10)
+    // 縦7レーン: 1:上サイド, 2:上ハーフ, 3:上インサイド, 4:センター, 5:下インサイド, 6:下ハーフ, 7:下サイド
+    public bool IsInsidePitch => Row >= 1 && Row <= 7 && Col >= 1 && Col <= 10;
 
-    // TeamAゴール: Row 0, Col 3 (TeamBが攻める)
-    // TeamBゴール: Row 11, Col 3 (TeamAが攻める)
-    public static readonly Position GoalA = new(0, 3);
-    public static readonly Position GoalB = new(11, 3);
+    // TeamAゴール: Col 0, Row 4 (左側ゴール / TeamBが攻める)
+    // TeamBゴール: Col 11, Row 4 (右側ゴール / TeamAが攻める)
+    public static readonly Position GoalA = new(4, 0);
+    public static readonly Position GoalB = new(4, 11);
 
     public bool IsGoalForTeam(TeamType team, int half = 1)
     {
-        // 前半: TeamAはRow 11 (GoalB) へ攻める、TeamBはRow 0 (GoalA) へ攻める
-        // 後半: 陣地交代するため、TeamAはRow 0 (GoalA) へ攻める、TeamBはRow 11 (GoalB) へ攻める
+        // 前半: TeamAはCol 11 (GoalB / 右) へ攻める、TeamBはCol 0 (GoalA / 左) へ攻める
+        // 後半: 陣地交代するため、TeamAはCol 0 (GoalA / 左) へ攻める、TeamBはCol 11 (GoalB / 右) へ攻める
         Position targetGoal = GetTargetGoal(team, half);
         return Row == targetGoal.Row && Col == targetGoal.Col;
     }

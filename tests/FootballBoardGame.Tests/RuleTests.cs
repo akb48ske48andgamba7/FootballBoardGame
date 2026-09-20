@@ -36,17 +36,17 @@ public class RuleTests
         var activeState = gameEngine.GetCurrentState();
         Assert.Equal(GamePhase.FirstHalf, activeState.Phase);
 
-        // TeamBのDF最後尾を探す (GK除く)
-        int? lastDfRow = _offsideService.GetOffsideLineRow(activeState, TeamType.TeamA);
-        Assert.NotNull(lastDfRow);
+        // TeamBのDF最後尾の列(Col)を探す (GK除く)
+        int? lastDfCol = _offsideService.GetOffsideLineCol(activeState, TeamType.TeamA);
+        Assert.NotNull(lastDfCol);
 
-        // 最後尾DFよりゴール側のマス(Row > lastDfRow)はオフサイド
-        var offsidePos = new Position(lastDfRow.Value + 1, 3);
+        // 最後尾DFより相手ゴール側 (Col > lastDfCol) はオフサイド
+        var offsidePos = new Position(4, lastDfCol.Value + 1);
         bool isOffside = _offsideService.IsOffside(activeState, TeamType.TeamA, offsidePos);
         Assert.True(isOffside);
 
-        // 同一ライン(Row == lastDfRow)はオフサイドではない
-        var onsidePos = new Position(lastDfRow.Value, 3);
+        // 同一列 (Col == lastDfCol) はオフサイドではない
+        var onsidePos = new Position(4, lastDfCol.Value);
         bool isOnside = _offsideService.IsOffside(activeState, TeamType.TeamA, onsidePos);
         Assert.False(isOnside);
     }
@@ -62,16 +62,43 @@ public class RuleTests
             .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
 
         var fwPiece = gameEngine.GetCurrentState().Pieces.First(p => p.Team == TeamType.TeamA && p.Number == 10);
-        
+
         // 3マス移動はエラー
         Assert.Throws<InvalidOperationException>(() =>
         {
-            gameEngine.MovePiece(fwPiece.Id, new Position(fwPiece.Position.Row + 3, fwPiece.Position.Col));
+            gameEngine.MovePiece(fwPiece.Id, new Position(fwPiece.Position.Row, fwPiece.Position.Col + 3));
         });
 
-        int originalRow = fwPiece.Position.Row;
+        int originalCol = fwPiece.Position.Col;
         // 2マス移動は成功
-        var updated = gameEngine.MovePiece(fwPiece.Id, new Position(originalRow + 2, fwPiece.Position.Col));
-        Assert.Equal(originalRow + 2, updated.Pieces.First(p => p.Id == fwPiece.Id).Position.Row);
+        var updated = gameEngine.MovePiece(fwPiece.Id, new Position(fwPiece.Position.Row, originalCol + 2));
+        Assert.Equal(originalCol + 2, updated.Pieces.First(p => p.Id == fwPiece.Id).Position.Col);
+    }
+
+    [Fact]
+    public void CpuAi_ShouldAutoSetupAndTakeTurn()
+    {
+        var gameEngine = new GameEngineService(_diceService, _offsideService);
+        var cpuService = new CpuAiService(gameEngine, _offsideService);
+
+        var state = gameEngine.GetCurrentState();
+        // TeamA プレイヤー配置
+        gameEngine.SetupTeam(TeamType.TeamA, state.Pieces.Where(p => p.Team == TeamType.TeamA)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+
+        // CPU (TeamB) の自動配置実行
+        var setupState = cpuService.ExecuteCpuStep(TeamType.TeamB);
+        Assert.Equal(GamePhase.FirstHalf, setupState.Phase);
+        Assert.Equal(TeamType.TeamA, setupState.ActiveTeam);
+
+        // TeamA の手番を終了して TeamB (CPU) の手番へ
+        gameEngine.EndTurn();
+        var cpuTurnState = gameEngine.GetCurrentState();
+        Assert.Equal(TeamType.TeamB, cpuTurnState.ActiveTeam);
+
+        // CPUの行動ステップを実行
+        var afterCpuState = cpuService.ExecuteCpuStep(TeamType.TeamB);
+        // CPUが行動してターンを終了し、手番がTeamAに戻るか、あるいはデュエルが発生していることを確認
+        Assert.True(afterCpuState.ActiveTeam == TeamType.TeamA || afterCpuState.PendingDuel != null);
     }
 }

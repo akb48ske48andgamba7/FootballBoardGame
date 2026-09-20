@@ -2,20 +2,27 @@ namespace FootballBoardGame.Server.Models;
 
 public enum GamePhase
 {
-    SetupFirstHalfA,    // 前半: TeamA 自陣配置 (Row 1〜5)
-    SetupFirstHalfB,    // 前半: TeamB 自陣配置 (Row 6〜10)
+    SetupFirstHalfA,    // 前半: TeamA 自陣配置 (Col 1〜5, Row 1〜7)
+    SetupFirstHalfB,    // 前半: TeamB 自陣配置 (Col 6〜10, Row 1〜7)
     FirstHalf,          // 前半試合進行中
     HalfTime,           // ハーフタイム (陣地交代)
-    SetupSecondHalfA,   // 後半: TeamA 自陣配置 (Row 6〜10)
-    SetupSecondHalfB,   // 後半: TeamB 自陣配置 (Row 1〜5)
+    SetupSecondHalfA,   // 後半: TeamA 自陣配置 (Col 6〜10, Row 1〜7)
+    SetupSecondHalfB,   // 後半: TeamB 自陣配置 (Col 1〜5, Row 1〜7)
     SecondHalf,         // 後半試合進行中
     GameOver            // 試合終了
+}
+
+public enum GameMode
+{
+    PvP, // 2名対戦 (ローカル交代)
+    PvC  // 1名対戦 vs CPU (TeamBがCPU)
 }
 
 public class GameState
 {
     public Guid GameId { get; set; } = Guid.NewGuid();
     public GamePhase Phase { get; set; } = GamePhase.SetupFirstHalfA;
+    public GameMode Mode { get; set; } = GameMode.PvC; // デフォルトでCPU対戦可能に
     public TeamType ActiveTeam { get; set; } = TeamType.TeamA;
 
     public int Half => (Phase == GamePhase.SetupFirstHalfA || Phase == GamePhase.SetupFirstHalfB || Phase == GamePhase.FirstHalf) ? 1 : 2;

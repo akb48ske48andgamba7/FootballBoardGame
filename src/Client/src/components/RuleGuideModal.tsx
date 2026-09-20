@@ -22,34 +22,41 @@ export const RuleGuideModal: React.FC<RuleGuideModalProps> = ({ onClose }) => {
 
         <div style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--text-main)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <h4 style={{ color: '#00d2ff', fontSize: '14px', marginBottom: '4px' }}>⚽ 基本仕様 & ピッチ</h4>
+            <h4 style={{ color: '#00d2ff', fontSize: '14px', marginBottom: '4px' }}>⚽ 横向きピッチ (縦7分割 × 横10マス)</h4>
             <p>
-              ・ピッチは縦10マス × 横5マス（左サイド/左ハーフ/センター/右ハーフ/右サイド）。<br />
-              ・ゴールは縦両端のセンターレーンの外側に配置されています。<br />
-              ・各チーム11名 ＋ ボール1個（能力3が1名、能力2が3名、能力1が7名。1名がGK）。
+              ・ピッチは横10マス（進行方向 Col 1〜10）× 縦7分割レーン（上サイド〜センター〜下サイド）。<br />
+              ・ゴールはピッチ左右両端（Col 0 および Col 11）の中央レーン（Row 4）外側に配置。<br />
+              ・各チーム11名 ＋ ボール1個（能力3×1名、能力2×3名、能力1×7名。1名がGK）。
             </p>
           </div>
 
           <div>
-            <h4 style={{ color: '#00ffaa', fontSize: '14px', marginBottom: '4px' }}>🏃 1ターンのアクション</h4>
+            <h4 style={{ color: '#ff7300', fontSize: '14px', marginBottom: '4px' }}>🤖 CPU対戦 & 2人対戦</h4>
             <p>
-              1ターンの間に以下の2つを行えます（順序不問）：<br />
+              ・ヘッダーの「vs CPU」を選ぶと、1人でCPU（Team RED）と本格タクティクス対戦が可能です。<br />
+              ・「2人対戦」に切り替えると、1台の端末で2名のプレイヤーが交互に手番を指せます。
+            </p>
+          </div>
+
+          <div>
+            <h4 style={{ color: '#00ffaa', fontSize: '14px', marginBottom: '4px' }}>🏃 1ターンのアクション (順序自由)</h4>
+            <p>
               1. <strong>移動</strong>: 最大2名まで、前後左右斜めに「最大2マス」移動（味方・相手のすり抜け可能）。ボール保持者の移動はドリブルになります。<br />
-              2. <strong>パス / シュート</strong>: ボール保持者が縦横斜めの直線状に無制限距離で出せます。ゴール枠へ向かうものは「シュート」になります。
+              2. <strong>パス / シュート</strong>: ボール保持者が縦横斜めの直線状に無制限距離で出せます。ゴール枠へ向かう直線パスは「シュート」になります。
             </p>
           </div>
 
           <div>
             <h4 style={{ color: '#ffd700', fontSize: '14px', marginBottom: '4px' }}>🧤 GK（ゴールキーパー）の特権</h4>
             <p>
-              GKがボールを持っているターンに限り、通常の2名移動・1回パスに加え、<strong>「GK自身を追加で移動」</strong>させることができます。
+              GKがボールを持っているターンに限り、通常の2名移動・1回パスに加え、<strong>「GK自身を追加で1回移動」</strong>させることができます。
             </p>
           </div>
 
           <div>
             <h4 style={{ color: '#ff3366', fontSize: '14px', marginBottom: '4px' }}>🚩 オフサイド</h4>
             <p>
-              パスが出た瞬間、受け手が「相手最後尾DF（GK除く）がいるマスの横ライン」より相手ゴール側にいた場合オフサイドとなり、相手ボールでターン交代となります（同ラインはセーフ）。ピッチ上に赤色のレーザーラインで常時可視化されています。
+              パスが出た瞬間、受け手が「相手最後尾DF（GK除く）がいる縦ライン（Col）」より相手ゴール側にいた場合オフサイド。ピッチ上に赤色レーザー光線でリアルタイムに縦オフサイドラインが表示されます。
             </p>
           </div>
 
@@ -57,8 +64,8 @@ export const RuleGuideModal: React.FC<RuleGuideModalProps> = ({ onClose }) => {
             <h4 style={{ color: '#ffaa00', fontSize: '14px', marginBottom: '4px' }}>🎲 サイコロ勝負（デュエル）</h4>
             <p>
               ・<strong>タックル</strong>: 相手ボール保持マスに自分のコマを移動させた瞬間に発生。<br />
-              ・<strong>パスカット/シュート阻止</strong>: パス/シュートの直線ルート上に相手がいる場合に発生。<br />
-              ・<strong>判定</strong>: 「能力値の合計 ＋ サイコロの目（1〜6）」が大きいチームの勝利！
+              ・<strong>パスカット/シュート阻止</strong>: パス/シュートの直線経路上に相手がいる場合に発生。<br />
+              ・<strong>判定</strong>: 「能力値合計 ＋ サイコロの目（1〜6）」が大きいチームの勝利！
             </p>
           </div>
 

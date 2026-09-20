@@ -1,4 +1,4 @@
-import type { ApiResponse, GameState, PiecePlacementDto, TeamType } from '../types/game';
+import type { ApiResponse, GameMode, GameState, PiecePlacementDto, TeamType } from '../types/game';
 
 const API_BASE = '/api/game';
 
@@ -21,6 +21,15 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 export const api = {
   getGameState: () => request<GameState>(''),
   resetGame: () => request<GameState>('/reset', { method: 'POST' }),
+  setGameMode: (mode: GameMode) =>
+    request<GameState>('/mode', {
+      method: 'POST',
+      body: JSON.stringify({ mode }),
+    }),
+  executeCpuStep: () =>
+    request<GameState>('/cpu/step', {
+      method: 'POST',
+    }),
   applyDefaultFormation: (team: TeamType) =>
     request<GameState>(`/setup/default?team=${team}`, { method: 'POST' }),
   setupTeam: (team: TeamType, placements: PiecePlacementDto[]) =>

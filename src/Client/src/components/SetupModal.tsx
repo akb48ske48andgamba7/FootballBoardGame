@@ -18,10 +18,11 @@ export const SetupModal: React.FC<SetupModalProps> = ({
       : 'TeamB';
 
   const isHalf1 = state.half === 1;
-  const isTopHalf = (isHalf1 && currentTeam === 'TeamA') || (!isHalf1 && currentTeam === 'TeamB');
-  const allowedRows = isTopHalf ? 'Row 1〜5' : 'Row 6〜10';
+  const isLeftHalf = (isHalf1 && currentTeam === 'TeamA') || (!isHalf1 && currentTeam === 'TeamB');
+  const allowedCols = isLeftHalf ? 'Col 1〜5 (左陣)' : 'Col 6〜10 (右陣)';
 
-  const teamName = currentTeam === 'TeamA' ? 'TEAM BLUE (チームA)' : 'TEAM RED (チームB)';
+  const isCpuTeam = state.mode === 'PvC' && currentTeam === 'TeamB';
+  const teamName = currentTeam === 'TeamA' ? 'TEAM BLUE (あなた)' : isCpuTeam ? 'TEAM RED (🤖 CPU)' : 'TEAM RED (チームB)';
 
   return (
     <div className="modal-overlay">
@@ -40,9 +41,9 @@ export const SetupModal: React.FC<SetupModalProps> = ({
         </div>
 
         <p className="setup-instructions">
-          自陣（縦5マス × 横5マス / <strong>{allowedRows}</strong>）に自由に11名を配置できます。
+          自陣（縦7マス × 横5マス / <strong>{allowedCols}</strong>）に11名を配置します。
           <br />
-          あらかじめバランス良く配置された「デフォルト・タクティクス（4-3-3）」を適用するか、配置を確定して進んでください。
+          バランス良く配置された「デフォルト・タクティクス」を適用するか、配置を確定して進んでください。
         </p>
 
         <div className="setup-action-btns">

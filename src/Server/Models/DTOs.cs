@@ -8,4 +8,6 @@ public record MovePieceRequest(string PieceId, int TargetRow, int TargetCol);
 
 public record PassOrShotRequest(int TargetRow, int TargetCol);
 
+public record SetGameModeRequest(GameMode Mode);
+
 public record ApiResponse<T>(bool Success, string Message, T? Data);

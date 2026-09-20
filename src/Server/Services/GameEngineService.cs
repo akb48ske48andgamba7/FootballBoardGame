@@ -17,11 +17,11 @@ public class GameEngineService : IGameEngineService
 
     public GameState GetCurrentState()
     {
-        // リアルタイムのオフサイドライン行番号を計算して付与
-        int? offsideRow = _offsideService.GetOffsideLineRow(_state, _state.ActiveTeam);
-        if (offsideRow.HasValue)
+        // リアルタイムのオフサイドライン列番号(Col)を計算して付与
+        int? offsideCol = _offsideService.GetOffsideLineCol(_state, _state.ActiveTeam);
+        if (offsideCol.HasValue)
         {
-            _state.OffsideWarning = $"Offside Line: Row {offsideRow.Value}";
+            _state.OffsideWarning = $"Offside Line: Col {offsideCol.Value}";
         }
         else
         {
@@ -31,12 +31,20 @@ public class GameEngineService : IGameEngineService
         return _state;
     }
 
+    public GameState SetGameMode(GameMode mode)
+    {
+        _state.Mode = mode;
+        _state.MatchLogs.Add($"対戦モードを変更しました: {(mode == GameMode.PvC ? "vs CPU対戦" : "2名対戦")}");
+        return GetCurrentState();
+    }
+
     public GameState ResetGame()
     {
         _state = new GameState
         {
             GameId = Guid.NewGuid(),
             Phase = GamePhase.SetupFirstHalfA,
+            Mode = _state.Mode, // 前回のモードを維持
             ActiveTeam = TeamType.TeamA,
             Turn = 1,
             IsAdditionalTime = false,
@@ -45,7 +53,7 @@ public class GameEngineService : IGameEngineService
             ScoreTeamA = 0,
             ScoreTeamB = 0,
             Pieces = new List<Piece>(),
-            Ball = new Ball { Position = new Position(5, 3), HolderPieceId = null },
+            Ball = new Ball { Position = new Position(4, 5), HolderPieceId = null },
             CurrentTurnAction = new TurnActionState(),
             PendingDuel = null,
             MatchLogs = new List<string> { "キックオフ準備: チームAの配置を開始してください。" }
@@ -67,14 +75,13 @@ public class GameEngineService : IGameEngineService
         bool isTeamA = team == TeamType.TeamA;
         int half = _state.Half;
 
-        // 自陣のベース行（前半: TeamAは1〜5、TeamBは6〜10 / 後半は逆）
-        bool isTopHalf = (half == 1 && isTeamA) || (half == 2 && !isTeamA);
+        // 自陣のベース列（前半: TeamAは左側 Col 1〜5、TeamBは右側 Col 6〜10 / 後半は逆）
+        bool isLeftHalf = (half == 1 && isTeamA) || (half == 2 && !isTeamA);
 
-        int gkRow = isTopHalf ? 1 : 10;
-        int dfRow = isTopHalf ? 2 : 9;
-        int mf1Row = isTopHalf ? 3 : 8;
-        int mf2Row = isTopHalf ? 4 : 7;
-        int fwRow = isTopHalf ? 5 : 6;
+        int gkCol = isLeftHalf ? 1 : 10;
+        int dfCol = isLeftHalf ? 2 : 9;
+        int mfCol = isLeftHalf ? 3 : 8;
+        int fwCol = isLeftHalf ? 5 : 6;
 
         var teamPieces = _state.Pieces.Where(p => p.Team == team).OrderBy(p => p.Number).ToList();
 
@@ -82,38 +89,38 @@ public class GameEngineService : IGameEngineService
         {
             switch (p.Number)
             {
-                case 1: // GK
-                    p.Position = new Position(gkRow, 3);
+                case 1: // GK (中央レーン Row 4)
+                    p.Position = new Position(4, gkCol);
                     break;
-                case 2: // DF Left
-                    p.Position = new Position(dfRow, 1);
+                case 2: // DF 上
+                    p.Position = new Position(2, dfCol);
                     break;
-                case 3: // DF Center-Left
-                    p.Position = new Position(dfRow, 2);
+                case 3: // DF 上インサイド
+                    p.Position = new Position(3, dfCol);
                     break;
-                case 4: // DF Center-Right
-                    p.Position = new Position(dfRow, 4);
+                case 4: // DF 下インサイド
+                    p.Position = new Position(5, dfCol);
                     break;
-                case 5: // DF Right
-                    p.Position = new Position(dfRow, 5);
+                case 5: // DF 下
+                    p.Position = new Position(6, dfCol);
                     break;
-                case 6: // MF Left
-                    p.Position = new Position(mf1Row, 2);
+                case 6: // MF 上
+                    p.Position = new Position(2, mfCol);
                     break;
-                case 7: // MF Right
-                    p.Position = new Position(mf1Row, 4);
+                case 7: // MF センター
+                    p.Position = new Position(4, mfCol);
                     break;
-                case 8: // MF Center
-                    p.Position = new Position(mf2Row, 3);
+                case 8: // MF 下
+                    p.Position = new Position(6, mfCol);
                     break;
-                case 9: // FW Left
-                    p.Position = new Position(fwRow, 2);
+                case 9: // FW 上
+                    p.Position = new Position(3, fwCol);
                     break;
-                case 10: // FW Center (Ace ★3)
-                    p.Position = new Position(fwRow, 3);
+                case 10: // FW センター (Ace ★3)
+                    p.Position = new Position(4, fwCol);
                     break;
-                case 11: // FW Right
-                    p.Position = new Position(fwRow, 4);
+                case 11: // FW 下
+                    p.Position = new Position(5, fwCol);
                     break;
             }
         }
@@ -140,15 +147,15 @@ public class GameEngineService : IGameEngineService
         }
 
         int half = _state.Half;
-        bool isTopHalf = (half == 1 && team == TeamType.TeamA) || (half == 2 && team == TeamType.TeamB);
-        int minRow = isTopHalf ? 1 : 6;
-        int maxRow = isTopHalf ? 5 : 10;
+        bool isLeftHalf = (half == 1 && team == TeamType.TeamA) || (half == 2 && team == TeamType.TeamB);
+        int minCol = isLeftHalf ? 1 : 6;
+        int maxCol = isLeftHalf ? 5 : 10;
 
         foreach (var placement in placements)
         {
-            if (placement.Row < minRow || placement.Row > maxRow || placement.Col < 1 || placement.Col > 5)
+            if (placement.Row < 1 || placement.Row > 7 || placement.Col < minCol || placement.Col > maxCol)
             {
-                throw new ArgumentException($"自陣 (Row {minRow}〜{maxRow}, Col 1〜5) の範囲内に配置してください。");
+                throw new ArgumentException($"自陣 (縦 Row 1〜7, 横 Col {minCol}〜{maxCol}) の範囲内に配置してください。");
             }
 
             var piece = _state.Pieces.FirstOrDefault(p => p.Id == placement.PieceId && p.Team == team);
@@ -329,31 +336,27 @@ public class GameEngineService : IGameEngineService
         var intermediatePath = startPos.GetStraightPathTo(targetPosition);
 
         // ルート上に相手選手がいるかチェック（インターセプトまたはシュート阻止）
-        // 始点から近い順にチェック
         foreach (var step in intermediatePath)
         {
             var defendersAtStep = _state.Pieces.Where(p => p.Team == opposingTeam && p.Position.Row == step.Row && p.Position.Col == step.Col).ToList();
             if (defendersAtStep.Any())
             {
-                // パスカット / シュート阻止デュエル発生
                 CreateInterceptOrShotDuel(ballHolder, defendersAtStep, step, targetPosition, isShot);
                 return GetCurrentState();
             }
         }
 
-        // シュートの場合、ゴール枠直前や目標位置に相手GK/DFがいればブロック勝負
+        // シュートの場合、ゴール枠直前（Row 4, Col 1 または Col 10）に相手GK/DFがいればブロック勝負
         if (isShot)
         {
-            // ゴールマス手前（1マス前）または経路上に相手GK/DFがいるか
-            // ゴール直前マスの敵
-            int goalEntranceRow = targetGoal.Row == 0 ? 1 : 10;
+            int goalEntranceCol = targetGoal.Col == 0 ? 1 : 10;
             var goalEntranceDefenders = _state.Pieces
-                .Where(p => p.Team == opposingTeam && p.Position.Row == goalEntranceRow && p.Position.Col == targetGoal.Col)
+                .Where(p => p.Team == opposingTeam && p.Position.Row == targetGoal.Row && p.Position.Col == goalEntranceCol)
                 .ToList();
 
             if (goalEntranceDefenders.Any())
             {
-                CreateInterceptOrShotDuel(ballHolder, goalEntranceDefenders, new Position(goalEntranceRow, targetGoal.Col), targetGoal, true);
+                CreateInterceptOrShotDuel(ballHolder, goalEntranceDefenders, new Position(targetGoal.Row, goalEntranceCol), targetGoal, true);
                 return GetCurrentState();
             }
 
@@ -370,16 +373,13 @@ public class GameEngineService : IGameEngineService
             return GetCurrentState();
         }
 
-        // オフサイド判定
-        // パスが出た瞬間に、受け手となる選手が「相手最後尾DF（GK除く）の横ライン」よりも相手ゴール側のマスにいた場合
+        // オフサイド判定 (横進行 Col)
         var receiver = _state.Pieces.FirstOrDefault(p => p.Team == _state.ActiveTeam && p.Position.Row == targetPosition.Row && p.Position.Col == targetPosition.Col);
         if (receiver != null && _offsideService.IsOffside(_state, _state.ActiveTeam, targetPosition))
         {
-            // オフサイド！
             _state.MatchLogs.Add($"【オフサイド！】 [{_state.ActiveTeam}] のパス受け手がオフサイドラインを越えていました。");
             _state.Ball.HolderPieceId = null;
             _state.Ball.Position = targetPosition;
-            // 相手ボールでターン終了
             ForceTurnEndDueToInfraction();
             return GetCurrentState();
         }
@@ -437,7 +437,6 @@ public class GameEngineService : IGameEngineService
         duel.AttackerDice = _diceService.Roll();
         duel.DefenderDice = _diceService.Roll();
 
-        // 判定: 能力値合計 + サイコロの目。数値が大きいチームが勝利（同点の場合は守備側有利）
         bool attackerWins = duel.AttackerTotal > duel.DefenderTotal;
         duel.Winner = attackerWins ? duel.AttackingTeam : duel.DefendingTeam;
 
@@ -447,7 +446,6 @@ public class GameEngineService : IGameEngineService
         {
             if (attackerWins)
             {
-                // タックル成功！仕掛けたアタッカーがボールを奪取
                 var mainAttacker = _state.Pieces.First(p => p.Id == duel.Attackers[0].PieceId);
                 _state.Ball.HolderPieceId = mainAttacker.Id;
                 _state.Ball.Position = duel.DuelPosition;
@@ -455,7 +453,6 @@ public class GameEngineService : IGameEngineService
             }
             else
             {
-                // タックル失敗！ボール保持者がキープ
                 _state.MatchLogs.Add($"【タックル失敗！】 [{duel.DefendingTeam}] が体を張ってボールをキープ！");
             }
         }
@@ -463,8 +460,7 @@ public class GameEngineService : IGameEngineService
         {
             if (attackerWins)
             {
-                // パス通過！
-                _state.MatchLogs.Add($"【パス通過！】 パスがディフェンスの頭上を越えて通りました！");
+                _state.MatchLogs.Add($"【パス通過！】 パスがディフェンスを越えて通りました！");
                 if (duel.PassTargetPosition != null)
                 {
                     _state.Ball.Position = duel.PassTargetPosition;
@@ -474,7 +470,6 @@ public class GameEngineService : IGameEngineService
             }
             else
             {
-                // インターセプト成功！ディフェンダーがボールを奪取
                 var interceptor = _state.Pieces.First(p => p.Id == duel.Defenders[0].PieceId);
                 _state.Ball.HolderPieceId = interceptor.Id;
                 _state.Ball.Position = duel.DuelPosition;
@@ -485,12 +480,10 @@ public class GameEngineService : IGameEngineService
         {
             if (attackerWins)
             {
-                // ゴール！！
                 RegisterGoal(duel.AttackingTeam);
             }
             else
             {
-                // セーブ / ブロック成功
                 var saver = _state.Pieces.First(p => p.Id == duel.Defenders[0].PieceId);
                 _state.Ball.HolderPieceId = saver.Id;
                 _state.Ball.Position = duel.DuelPosition;
@@ -516,13 +509,14 @@ public class GameEngineService : IGameEngineService
 
         _state.MatchLogs.Add($"★★★★ GOOOOOAL!! ★★★★ [{scoringTeam}] 得点！ ({_state.ScoreTeamA} - {_state.ScoreTeamB})");
 
-        // キックオフリスタート（失点したチームのセンターサークルから）
         var concededTeam = scoringTeam == TeamType.TeamA ? TeamType.TeamB : TeamType.TeamA;
-        _state.Ball.Position = new Position(5, 3);
+        int kickoffCol = concededTeam == TeamType.TeamA ? 5 : 6;
+        _state.Ball.Position = new Position(4, kickoffCol);
+
         var kickOffPlayer = _state.Pieces.FirstOrDefault(p => p.Team == concededTeam && p.Number == 10);
         if (kickOffPlayer != null)
         {
-            kickOffPlayer.Position = new Position(concededTeam == TeamType.TeamA ? 5 : 6, 3);
+            kickOffPlayer.Position = new Position(4, kickoffCol);
             _state.Ball.HolderPieceId = kickOffPlayer.Id;
         }
         else
@@ -530,7 +524,6 @@ public class GameEngineService : IGameEngineService
             _state.Ball.HolderPieceId = null;
         }
 
-        // ターン終了とし、失点したチームの手番へ
         _state.ActiveTeam = concededTeam;
         StartNewTurn();
     }
@@ -549,7 +542,6 @@ public class GameEngineService : IGameEngineService
             throw new InvalidOperationException("サイコロ勝負（デュエル）が未解決です。");
         }
 
-        // 攻守交代 (TeamA <-> TeamB)
         if (_state.ActiveTeam == TeamType.TeamA)
         {
             _state.ActiveTeam = TeamType.TeamB;
@@ -558,7 +550,6 @@ public class GameEngineService : IGameEngineService
             return GetCurrentState();
         }
 
-        // TeamBのターン終了時 = 1ラウンド（1ターン）経過
         _state.ActiveTeam = TeamType.TeamA;
 
         if (!_state.IsAdditionalTime)
@@ -571,7 +562,6 @@ public class GameEngineService : IGameEngineService
             }
             else
             {
-                // 45ターン終了！アディショナルタイム判定（サイコロ2個）
                 var (d1, d2, totalAt) = _diceService.RollTwo();
                 _state.IsAdditionalTime = true;
                 _state.AdditionalTimeTotal = totalAt;
@@ -582,7 +572,6 @@ public class GameEngineService : IGameEngineService
         }
         else
         {
-            // アディショナルタイム中
             _state.AdditionalTimeTurnsElapsed++;
             if (_state.AdditionalTimeTurnsElapsed < _state.AdditionalTimeTotal)
             {
@@ -591,7 +580,6 @@ public class GameEngineService : IGameEngineService
             }
             else
             {
-                // 前半または後半終了
                 if (_state.Phase == GamePhase.FirstHalf)
                 {
                     _state.Phase = GamePhase.HalfTime;
@@ -600,7 +588,6 @@ public class GameEngineService : IGameEngineService
                     _state.AdditionalTimeTotal = 0;
                     _state.AdditionalTimeTurnsElapsed = 0;
                     _state.MatchLogs.Add($"【前半終了！】 ハーフタイムです。陣地を交代して後半の配置を行ってください。");
-                    // 陣地交代に合わせてデフォルト配置を適用
                     ApplyDefaultFormation(TeamType.TeamA);
                     ApplyDefaultFormation(TeamType.TeamB);
                     _state.Phase = GamePhase.SetupSecondHalfA;
@@ -626,7 +613,6 @@ public class GameEngineService : IGameEngineService
 
     private void UpdateGkPrivilege()
     {
-        // GKがボールを保持しているターンに限り、GK自身を追加で移動可能
         var currentTeamGk = _state.Pieces.FirstOrDefault(p => p.Team == _state.ActiveTeam && p.IsGoalkeeper);
         if (currentTeamGk != null && _state.Ball.HolderPieceId == currentTeamGk.Id)
         {
