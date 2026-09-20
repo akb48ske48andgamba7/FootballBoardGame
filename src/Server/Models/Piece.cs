@@ -6,16 +6,34 @@ public enum TeamType
     TeamB
 }
 
+/// <summary>
+/// 【学習用解説: サッカー選手（コマ）を表すエンティティクラス】
+/// 
+/// 将棋やチェスにおける「駒」に相当し、サッカーの各選手が持つ固有データ（背番号、能力、ポジション）を保持します。
+/// 
+/// ■ 設計のポイント:
+/// - `Ability` (能力値 1〜3): サイコロ勝負（出目 1〜6）に加算される固定値です。★3のエースはサイコロで大きなアドバンテージを持ちます。
+/// - `IsGoalkeeper`: ゴールキーパーフラグ。ペナルティエリア内でシュートを打たれた際、手を使った守備として能力+1ボーナスを得られます。
+/// - `KickoffPosition`: ゴールが決まった後、実際のサッカー同様に初期陣形へ戻るための定位置を記憶します。
+/// </summary>
 public class Piece
 {
     public string Id { get; set; } = string.Empty;
     public TeamType Team { get; set; }
-    public int Number { get; set; }              // 1〜11
+    public int Number { get; set; }              // 背番号 (1〜11)
     public string Name { get; set; } = string.Empty;
-    public int Ability { get; set; }             // 1, 2, 3
-    public bool IsGoalkeeper { get; set; }
-    public Position Position { get; set; } = new(4, 1);
+    public int Ability { get; set; }             // 能力値: 1 (★1), 2 (★2), 3 (★3: エース)
+    public bool IsGoalkeeper { get; set; }       // GKフラグ
+    public Position Position { get; set; } = new(4, 1); // 現在のピッチ上の座標
+    
+    /// <summary>
+    /// キックオフ時の初期フォーメーション配置（ゴール後に全員が元のポジションへ戻るために使用）
+    /// </summary>
+    public Position? KickoffPosition { get; set; }
 
+    /// <summary>
+    /// デフォルトのスターティングイレブン（11名）を生成するファクトリメソッドです。
+    /// </summary>
     public static List<Piece> CreateDefaultTeam(TeamType team, int half = 1)
     {
         // チーム構成: 能力3が1名, 能力2が3名, 能力1が7名。1名がGK。

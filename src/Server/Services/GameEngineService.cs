@@ -2,6 +2,26 @@ using FootballBoardGame.Server.Models;
 
 namespace FootballBoardGame.Server.Services;
 
+/// <summary>
+/// 【学習用解説: ゲームロジックの心臓部「ドメインサービス (Domain Service)」】
+/// 
+/// サッカーボードゲームのルール判定、コマの移動、パス・シュート、サイコロ勝負、得点管理など、
+/// ゲームにおけるすべての「ビジネスロジック（ルール）」を集中して実行する中心クラスです。
+/// 
+/// ■ 設計の重要ポイント:
+/// 1. コントローラー (GameController) との責務分離:
+///    - コントローラーは「HTTPリクエストを受け取って返すだけ」の薄い層にします。
+///    - ルールの計算や状態変更はすべてこの `GameEngineService` に任せることで、
+///      単体テスト (`dotnet test`) がWebサーバーを起動せず瞬時に実行できるようになります。
+/// 
+/// 2. 依存性の注入 (Dependency Injection: DI):
+///    - サイコロ機能 (`IDiceService`) やオフサイド判定 (`IOffsideRuleService`) を
+///      コンストラクタ経由で受け取ることで、コードの結合度を下げ、テストしやすい設計にしています。
+/// 
+/// 3. LINQ (Language Integrated Query) の活用:
+///    - `Pieces.FirstOrDefault(p => ...)` や `Where(...)` など、C#の強力なデータ問い合わせ機能を
+///      駆使して、ピッチ上の選手やボールの位置関係を直感的に取得・操作しています。
+/// </summary>
 public class GameEngineService : IGameEngineService
 {
     private readonly IDiceService _diceService;
@@ -167,6 +187,7 @@ public class GameEngineService : IGameEngineService
         {
             _state.Phase = GamePhase.FirstHalf;
             _state.ActiveTeam = TeamType.TeamA;
+            SaveKickoffPositions();
             StartNewTurn();
             _state.MatchLogs.Add("両チーム配置完了！前半キックオフ！");
         }
@@ -179,6 +200,7 @@ public class GameEngineService : IGameEngineService
         {
             _state.Phase = GamePhase.SecondHalf;
             _state.ActiveTeam = TeamType.TeamB;
+            SaveKickoffPositions();
             StartNewTurn();
             _state.MatchLogs.Add("後半キックオフ！");
         }
@@ -533,6 +555,14 @@ public class GameEngineService : IGameEngineService
         return GetCurrentState();
     }
 
+    private void SaveKickoffPositions()
+    {
+        foreach (var piece in _state.Pieces)
+        {
+            piece.KickoffPosition = new Position(piece.Position.Row, piece.Position.Col);
+        }
+    }
+
     private void RegisterGoal(TeamType scoringTeam)
     {
         if (scoringTeam == TeamType.TeamA)
@@ -547,13 +577,39 @@ public class GameEngineService : IGameEngineService
         _state.MatchLogs.Add($"★★★★ GOOOOOAL!! ★★★★ [{scoringTeam}] 得点！ ({_state.ScoreTeamA} - {_state.ScoreTeamB})");
 
         var concededTeam = scoringTeam == TeamType.TeamA ? TeamType.TeamB : TeamType.TeamA;
-        int kickoffCol = concededTeam == TeamType.TeamA ? 6 : 7;
-        _state.Ball.Position = new Position(4, kickoffCol);
+        int half = _state.Half;
 
-        var kickOffPlayer = _state.Pieces.FirstOrDefault(p => p.Team == concededTeam && p.Number == 10);
+        // 実際のサッカー同様、全選手を自陣のキックオフ初期陣形へ復帰
+        foreach (var piece in _state.Pieces)
+        {
+            if (piece.KickoffPosition != null)
+            {
+                piece.Position = new Position(piece.KickoffPosition.Row, piece.KickoffPosition.Col);
+            }
+            else
+            {
+                // KickoffPositionが未設定の場合は現在の自陣側へ安全に再配置
+                bool isPieceTeamLeft = (half == 1 && piece.Team == TeamType.TeamA) || (half == 2 && piece.Team == TeamType.TeamB);
+                int defaultCol = isPieceTeamLeft ? Math.Min(piece.Position.Col, 6) : Math.Max(piece.Position.Col, 7);
+                piece.Position = new Position(piece.Position.Row, defaultCol);
+            }
+        }
+
+        // 失点側チーム（キックオフを行うチーム）のセンターサークルキックオフ位置
+        // 前半: TeamA自陣は左(Col 1〜6), TeamB自陣は右(Col 7〜12) -> TeamAが失点した場合はCol 6, TeamBが失点した場合はCol 7
+        // 後半: 陣地交代するため逆
+        bool isConcededOnLeft = (half == 1 && concededTeam == TeamType.TeamA) || (half == 2 && concededTeam == TeamType.TeamB);
+        int kickoffCol = isConcededOnLeft ? 6 : 7;
+        var kickoffPos = new Position(4, kickoffCol);
+
+        _state.Ball.Position = kickoffPos;
+
+        var kickOffPlayer = _state.Pieces.FirstOrDefault(p => p.Team == concededTeam && p.Number == 10)
+            ?? _state.Pieces.FirstOrDefault(p => p.Team == concededTeam && !p.IsGoalkeeper);
+
         if (kickOffPlayer != null)
         {
-            kickOffPlayer.Position = new Position(4, kickoffCol);
+            kickOffPlayer.Position = kickoffPos;
             _state.Ball.HolderPieceId = kickOffPlayer.Id;
         }
         else
@@ -563,6 +619,7 @@ public class GameEngineService : IGameEngineService
 
         _state.ActiveTeam = concededTeam;
         StartNewTurn();
+        _state.MatchLogs.Add($"[{concededTeam}] 両チームが自陣のキックオフ陣形に戻り、センターサークルから試合再開！");
     }
 
     private void ForceTurnEndDueToInfraction()

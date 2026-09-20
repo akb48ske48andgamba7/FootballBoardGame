@@ -25,6 +25,7 @@ export interface Piece {
   ability: number; // 1, 2, 3
   isGoalkeeper: boolean;
   position: Position;
+  kickoffPosition?: Position;
 }
 
 export interface Ball {

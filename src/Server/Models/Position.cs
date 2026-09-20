@@ -1,9 +1,20 @@
 namespace FootballBoardGame.Server.Models;
 
+/// <summary>
+/// 【学習用解説: C#の「レコード型 (record)」と幾何計算】
+/// 
+/// 1. なぜ class ではなく record なのか？
+///    - record は「値の等価性 (Value Equality)」を自動で持ちます。
+///      例えば `new Position(4, 2) == new Position(4, 2)` は、別インスタンスでも true になります。
+///      盤面のマス目を表す座標データは「値そのもの」が重要であるため、不変な record が最適です。
+/// 
+/// 2. ピッチの座標系:
+///    - 縦方向 (Row): 1〜7 (1:上サイド, 2:上ハーフ, 3:上インサイド, 4:センター, 5:下インサイド, 6:下ハーフ, 7:下サイド)
+///    - 横方向 (Col): 1〜12 (左側ゴール: Col 0, 右側ゴール: Col 13)
+/// </summary>
 public record Position(int Row, int Col)
 {
     // ピッチ内部: 縦7分割 (Row 1〜7), 横12マス (Col 1〜12)
-    // 縦7レーン: 1:上サイド, 2:上ハーフ, 3:上インサイド, 4:センター, 5:下インサイド, 6:下ハーフ, 7:下サイド
     public bool IsInsidePitch => Row >= 1 && Row <= 7 && Col >= 1 && Col <= 12;
 
     // TeamAゴール: Col 0, Row 4 (左側ゴール / TeamBが攻める)
@@ -11,14 +22,21 @@ public record Position(int Row, int Col)
     public static readonly Position GoalA = new(4, 0);
     public static readonly Position GoalB = new(4, 13);
 
+    /// <summary>
+    /// 指定されたチームにとって、この座標が「相手のゴール」であるかを判定します。
+    /// サッカー同様、ハーフタイムで陣地が交代（前半と後半で攻める向きが逆）になります。
+    /// </summary>
     public bool IsGoalForTeam(TeamType team, int half = 1)
     {
-        // 前半: TeamAはCol 13 (GoalB / 右) へ攻める、TeamBはCol 0 (GoalA / 左) へ攻める
-        // 後半: 陣地交代するため、TeamAはCol 0 (GoalA / 左) へ攻める、TeamBはCol 13 (GoalB / 右) へ攻める
         Position targetGoal = GetTargetGoal(team, half);
         return Row == targetGoal.Row && Col == targetGoal.Col;
     }
 
+    /// <summary>
+    /// 各チームが現在攻めるべき相手ゴール座標を取得します。
+    /// 前半: TeamAは右 (Col 13), TeamBは左 (Col 0)
+    /// 後半: 陣地交代により TeamAは左 (Col 0), TeamBは右 (Col 13)
+    /// </summary>
     public static Position GetTargetGoal(TeamType team, int half)
     {
         if (half == 1)
@@ -31,6 +49,9 @@ public record Position(int Row, int Col)
         }
     }
 
+    /// <summary>
+    /// 自チームが守るべき自陣のゴール座標を取得します。
+    /// </summary>
     public static Position GetOwnGoal(TeamType team, int half)
     {
         if (half == 1)
@@ -43,7 +64,11 @@ public record Position(int Row, int Col)
         }
     }
 
-    // ペナルティーエリア判定 (センターと上下のインサイド Row 3〜5、双方センターサークル方向へ1列拡大: Col 1〜2 または Col 11〜12)
+    /// <summary>
+    /// ペナルティーエリア判定:
+    /// ゴールキーパーが手を使って守れる神聖なエリア。
+    /// センターおよび上下インサイド（Row 3〜5）で、ゴール側の横2列分（Col 1〜2 または Col 11〜12）の計6マス。
+    /// </summary>
     public bool IsInPenaltyArea(TeamType defendingTeam, int half)
     {
         Position ownGoal = GetOwnGoal(defendingTeam, half);
@@ -52,11 +77,22 @@ public record Position(int Row, int Col)
         return inColRange && (Row >= 3 && Row <= 5);
     }
 
-    // チェビシェフ距離 (縦・横・斜めを1歩として何歩で到達できるか)
+    /// <summary>
+    /// 【アルゴリズム解説: チェビシェフ距離 (Chebyshev Distance)】
+    /// 将棋の王将やチェスのキングのように、「縦・横・斜めの8方向すべてを1歩で移動できる」グリッド盤面での最短距離を計算します。
+    /// 数式: max(|Row1 - Row2|, |Col1 - Col2|)
+    /// 例: (4, 4) から (2, 2) への移動は、縦2マスかつ横2マス（斜め2歩）なので距離は max(2, 2) = 2 となります。
+    /// </summary>
     public int ChebyshevDistance(Position other) =>
         Math.Max(Math.Abs(Row - other.Row), Math.Abs(Col - other.Col));
 
-    // 縦・横・斜めの直線かどうかの判定
+    /// <summary>
+    /// 2点間が縦・横・斜めの完全な「直線」上にあるかを判定します。
+    /// パスやシュートは直線方向にのみ通すことができます。
+    /// - 縦方向の直線: dCol == 0
+    /// - 横方向の直線: dRow == 0
+    /// - 斜め方向の直線: dRow == dCol
+    /// </summary>
     public bool IsStraightLineTo(Position other)
     {
         int dRow = Math.Abs(Row - other.Row);
@@ -64,7 +100,12 @@ public record Position(int Row, int Col)
         return dRow == 0 || dCol == 0 || dRow == dCol;
     }
 
-    // 始点から終点までの直線上の中間マスリスト (始点・終点は含まない)
+    /// <summary>
+    /// 【アルゴリズム解説: レイキャスティング / 直線上の遮蔽物判定】
+    /// 始点から終点までの直線上にあるすべての中間マスを順番に返します（始点・終点は除く）。
+    /// パスコースやシュートコース上に相手ディフェンス選手が立ちふさがっているかを判定し、
+    /// 「インターセプト（パスカット）勝負」を発生させるために使用されます。
+    /// </summary>
     public List<Position> GetStraightPathTo(Position destination)
     {
         var path = new List<Position>();

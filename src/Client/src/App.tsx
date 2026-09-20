@@ -14,6 +14,31 @@ import './styles/index.css';
 import './styles/board.css';
 import './styles/components.css';
 
+/**
+ * 【学習用解説: Reactのメインオーケストレーション (App Component)】
+ * 
+ * アプリケーション全体の「親コンポーネント」であり、バックエンドAPIとの通信や
+ * 画面全体のState（状態）を一括管理する司令塔の役割を果たします。
+ * 
+ * ■ 初心者向け React Hooks（フック）の解説:
+ * 1. `useState`:
+ *    - 画面に変化を与える「状態」を保持します（例: `state` に最新のゲーム盤データが入ると自動で再描画されます）。
+ * 2. `useEffect`:
+ *    - 「画面が表示されたとき (初回マウント)」や「特定の値が変化したとき」に動く副作用関数です。
+ *    - 起動時の初期ロード (`loadGameState`) や、手番がCPUになった瞬間の自動実行に使われます。
+ * 3. `useRef`:
+ *    - 再レンダリングを起こさずに値を保持できる「裏ポケット」のような変数です。
+ *    - CPUの連続多重実行を防ぐロックフラグ (`isCpuRunningRef`) に活用されています。
+ * 
+ * ■ コンポーネントの親子関係:
+ * App (親)
+ *  ├── Header (タイトルバー・モード切替)
+ *  ├── ScoreBoard (スコア・フェーズ・タイマー表示)
+ *  ├── ControlBar (移動/パスカウント・パス切替・ターン終了)
+ *  ├── Board (7×12のサッカーピッチ盤面)
+ *  ├── DiceModal (サイコロ勝負ポップアップ演出)
+ *  └── SetupModal (15種フォーメーション＆能力配分設定)
+ */
 export function App() {
   const [state, setState] = useState<GameState | null>(null);
   const [loading, setLoading] = useState(true);

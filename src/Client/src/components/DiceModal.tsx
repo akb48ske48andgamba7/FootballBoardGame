@@ -8,6 +8,22 @@ interface DiceModalProps {
   onFinish: (updatedState: GameState) => void;
 }
 
+/**
+ * 【学習用解説: サイコロ対決モーダル (DiceModal)】
+ * 
+ * タックル、インターセプト、シュート阻止の「1対1の真剣勝負（デュエル）」をドラマチックに演出するコンポーネントです。
+ * 
+ * ■ アニメーションとUX（ユーザー体験）の技術ポイント:
+ * 1. ダイス回転アニメーション:
+ *    - `setInterval` で 80ms ごとにランダムな出目を激しく切り替え、サイコロが転がっている臨場感を表現。
+ * 2. 判定結果の「3秒間保持」:
+ *    - サーバーで計算された最新の出目や勝敗メッセージを受け取った後、
+ *      すぐにモーダルを閉じずに約3秒間カウントダウン表示を維持し、結果をじっくり味わえるようにしています。
+ * 3. 即時スキップ機能:
+ *    - 「OK (盤面に戻る)」ボタンを用意し、プレイヤーが自分のペースでゲームを進められるよう配慮しています。
+ * 4. 紙吹雪演出:
+ *    - `canvas-confetti` ライブラリを使用して、勝利時・ゴール時に華やかな紙吹雪を舞わせます。
+ */
 export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve, onFinish }) => {
   const [isRolling, setIsRolling] = useState(false);
   const [displayAttackerDice, setDisplayAttackerDice] = useState<number>(1);

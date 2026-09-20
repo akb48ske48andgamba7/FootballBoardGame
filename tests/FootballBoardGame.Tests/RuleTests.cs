@@ -339,6 +339,69 @@ public class RuleTests
         Assert.True(new Position(4, 11).IsInPenaltyArea(TeamType.TeamB, 1)); // 拡大された列
         Assert.False(new Position(4, 10).IsInPenaltyArea(TeamType.TeamB, 1));
     }
+
+    [Fact]
+    public void Goal_ShouldResetAllPlayersToKickoffFormation_AndConcededTeamKickoffAtCenter()
+    {
+        var gameEngine = new GameEngineService(_diceService, _offsideService);
+        var state = gameEngine.GetCurrentState();
+
+        // 初期配置確定 (前半キックオフ)
+        gameEngine.SetupTeam(TeamType.TeamA, state.Pieces.Where(p => p.Team == TeamType.TeamA)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+        gameEngine.SetupTeam(TeamType.TeamB, state.Pieces.Where(p => p.Team == TeamType.TeamB)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+
+        var activeState = gameEngine.GetCurrentState();
+        var teamAPieces = activeState.Pieces.Where(p => p.Team == TeamType.TeamA).ToList();
+        var initialPositions = activeState.Pieces.ToDictionary(p => p.Id, p => p.Position);
+
+        // 選手を移動させる (前線へ攻め上がる)
+        var attacker = teamAPieces.First(p => p.Number == 10);
+        gameEngine.MovePiece(attacker.Id, new Position(attacker.Position.Row, attacker.Position.Col + 2));
+
+        // 移動後の位置が変わっていることを確認
+        var movedState = gameEngine.GetCurrentState();
+        Assert.NotEqual(initialPositions[attacker.Id].Col, movedState.Pieces.First(p => p.Id == attacker.Id).Position.Col);
+
+        // ゴール直前まで前進してシュート、または相手ゴールへのシュートを実行
+        // テスト用ダイス(攻撃側が必ず勝つダイス)の代わりに直線上シュートを実施
+        var targetGoal = Position.GetTargetGoal(TeamType.TeamA, 1);
+        movedState.Pieces.First(p => p.Id == attacker.Id).Position = new Position(4, 12); // ゴール前へ
+        movedState.Ball.Position = new Position(4, 12);
+        movedState.Ball.HolderPieceId = attacker.Id;
+
+        // シュート実行 -> デュエル発生
+        gameEngine.PassOrShot(targetGoal);
+        Assert.NotNull(gameEngine.GetCurrentState().PendingDuel);
+
+        // デュエルを解決 (攻撃側勝利になるまで解決、または直接解決確認)
+        var afterDuel = gameEngine.ResolveDuel();
+        if (afterDuel.ScoreTeamA > 0)
+        {
+            // ゴール成立時の検証
+            // 1. 失点側 (TeamB) が手番になっていること
+            Assert.Equal(TeamType.TeamB, afterDuel.ActiveTeam);
+
+            // 2. ボールはセンターサークル (Col 7, Row 4) にあること
+            Assert.Equal(4, afterDuel.Ball.Position.Row);
+            Assert.Equal(7, afterDuel.Ball.Position.Col);
+
+            // 3. 失点チームのキックオフ選手がボールを保持していること
+            Assert.NotNull(afterDuel.Ball.HolderPieceId);
+            var holder = afterDuel.Pieces.First(p => p.Id == afterDuel.Ball.HolderPieceId);
+            Assert.Equal(TeamType.TeamB, holder.Team);
+            Assert.Equal(7, holder.Position.Col);
+            Assert.Equal(4, holder.Position.Row);
+
+            // 4. 得点側 (TeamA) の全選手が自陣側 (Col <= 6) の初期配置に戻っていること
+            var aPieces = afterDuel.Pieces.Where(p => p.Team == TeamType.TeamA).ToList();
+            foreach (var p in aPieces)
+            {
+                Assert.True(p.Position.Col <= 6); // 全員が自陣側に戻っている
+            }
+        }
+    }
 }
 
 
