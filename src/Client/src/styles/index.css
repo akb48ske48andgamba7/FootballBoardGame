@@ -1,0 +1,131 @@
+:root {
+  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Space Grotesk', monospace;
+
+  /* 背景・UI */
+  --bg-dark-deep: #060a12;
+  --bg-dark-surface: #0e1726;
+  --bg-dark-card: rgba(18, 28, 48, 0.75);
+  --border-glass: rgba(255, 255, 255, 0.12);
+  --border-glass-glow: rgba(0, 240, 255, 0.35);
+
+  /* サッカーピッチ (芝生) */
+  --pitch-stripe-1: #0e4427;
+  --pitch-stripe-2: #124f2e;
+  --pitch-line: rgba(255, 255, 255, 0.45);
+  --pitch-line-strong: rgba(255, 255, 255, 0.85);
+  --pitch-lane-guide: rgba(255, 255, 255, 0.14);
+
+  /* チームA (Neon Cyan / Royal Blue) */
+  --teamA-primary: #00d2ff;
+  --teamA-glow: rgba(0, 210, 255, 0.6);
+  --teamA-bg: linear-gradient(135deg, #0052d4, #4364f7, #6fb1fc);
+
+  /* チームB (Crimson Neon / Flame Orange) */
+  --teamB-primary: #ff3366;
+  --teamB-glow: rgba(255, 51, 102, 0.6);
+  --teamB-bg: linear-gradient(135deg, #f80759, #bc4e9c);
+
+  /* 能力値カラー */
+  --ability-3-gold: #ffd700;
+  --ability-3-glow: rgba(255, 215, 0, 0.8);
+  --ability-2-silver: #d1dced;
+  --ability-2-glow: rgba(209, 220, 237, 0.6);
+  --ability-1-bronze: #cd7f32;
+  --ability-1-light: #9ab0cc;
+
+  /* アクション・ハイライト */
+  --highlight-move: rgba(0, 255, 170, 0.45);
+  --highlight-move-border: #00ffaa;
+  --highlight-pass: rgba(255, 230, 0, 0.45);
+  --highlight-pass-border: #ffe600;
+  --highlight-offside: rgba(255, 0, 68, 0.45);
+  --highlight-offside-line: #ff0044;
+
+  --text-main: #f0f4fc;
+  --text-muted: #8c9cb8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-dark-deep);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(0, 210, 255, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(255, 51, 102, 0.08) 0%, transparent 40%),
+    linear-gradient(180deg, #05080e 0%, #0a111e 100%);
+}
+
+button {
+  font-family: var(--font-main);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* スクロールバー */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* グラスモーフィズム共通 */
+.glass-panel {
+  background: var(--bg-dark-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border-radius: 16px;
+}
+
+/* アニメーション */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px var(--ability-3-glow), 0 0 20px var(--ability-3-glow);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 18px var(--ability-3-glow), 0 0 35px var(--ability-3-glow);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes ball-float {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-3px) scale(1.08); }
+}
+
+@keyframes laser-glow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes modal-pop {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
