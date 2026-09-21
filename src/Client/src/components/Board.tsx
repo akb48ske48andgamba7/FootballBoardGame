@@ -59,37 +59,63 @@ export const Board: React.FC<BoardProps> = ({
       ? { row: 4, col: 13 }
       : { row: 4, col: 0 };
 
+  const isPlaying = state.phase === 'FirstHalf' || state.phase === 'SecondHalf';
+
   // 移動可能マスの計算 (最大2マス)
   const isCellValidMove = (row: number, col: number): boolean => {
-    if (isPassMode || !selectedPiece) return false;
+    if (!isPlaying || isPassMode || !selectedPiece) return false;
     const dRow = Math.abs(selectedPiece.position.row - row);
     const dCol = Math.abs(selectedPiece.position.col - col);
     const dist = Math.max(dRow, dCol);
-    return dist >= 1 && dist <= 2;
+    if (dist < 1 || dist > 2) return false;
+
+    // 移動先に相手ボール保持者がいる場合（タックル）のチェック
+    const opposingTeam = state.activeTeam === 'TeamA' ? 'TeamB' : 'TeamA';
+    const enemyBallHolder = state.pieces.find(
+      (p) => p.team === opposingTeam && p.position.row === row && p.position.col === col && state.ball.holderPieceId === p.id
+    );
+
+    if (enemyBallHolder) {
+      // 要件: 相手GKがボールを保持しているときはタックル不可
+      if (enemyBallHolder.isGoalkeeper) return false;
+
+      // 要件: 同一選手によるタックルは1ターンに1回まで
+      if (state.currentTurnAction?.tackledPieceIds?.includes(selectedPiece.id)) return false;
+    }
+
+    return true;
   };
 
-  // パス/シュート可能マスの計算 (縦・横・斜めの直線)
+  // パス/シュート可能マスの計算 (縦・横・斜めの直線、かつ6マス以内)
   const isCellValidPass = (row: number, col: number): boolean => {
-    if (!isPassMode || !ballHolder) return false;
+    if (!isPlaying || !isPassMode || !ballHolder) return false;
     const startRow = ballHolder.position.row;
     const startCol = ballHolder.position.col;
     if (startRow === row && startCol === col) return false;
 
     const dRow = Math.abs(startRow - row);
     const dCol = Math.abs(startCol - col);
-    return dRow === 0 || dCol === 0 || dRow === dCol;
+    if (dRow !== 0 && dCol !== 0 && dRow !== dCol) return false;
+
+    // 要件: 前後左右斜め6マス以内制限
+    const dist = Math.max(dRow, dCol);
+    return dist <= 6;
   };
 
-  // シュート可能な直線上のゴールかどうかの判定
+  // シュート可能な直線上のゴールかどうかの判定 (縦・横・斜めの直線、かつ6マス以内)
   const isGoalTargetable = (goalPos: Position): boolean => {
-    if (!isPassMode || !ballHolder) return false;
+    if (!isPlaying || !isPassMode || !ballHolder) return false;
     if (goalPos.row !== targetGoalPos.row || goalPos.col !== targetGoalPos.col) return false;
 
     const startRow = ballHolder.position.row;
     const startCol = ballHolder.position.col;
     const dRow = Math.abs(startRow - goalPos.row);
     const dCol = Math.abs(startCol - goalPos.col);
-    return dRow === 0 || dCol === 0 || dRow === dCol;
+    if (dRow !== 0 && dCol !== 0 && dRow !== dCol) return false;
+
+    // 要件: 前後左右斜め6マス以内制限
+    const dist = Math.max(dRow, dCol);
+    return dist <= 6;
   };
 
   // 相手最後尾DF (GK除く) のColによる縦オフサイドラインの計算
@@ -115,6 +141,7 @@ export const Board: React.FC<BoardProps> = ({
     (state.half === 2 && state.activeTeam === 'TeamB');
 
   const handleCellClick = (row: number, col: number) => {
+    if (!isPlaying) return;
     if (isPassMode) {
       if (isCellValidPass(row, col)) {
         onPassOrShot(row, col);

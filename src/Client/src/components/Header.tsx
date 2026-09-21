@@ -21,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
         <span style={{ fontSize: '26px' }}>⚽</span>
         <span>POSITIONAL TACTICS</span>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-          7×10 Pitch
+          7×12 Pitch
         </span>
       </div>
 

@@ -41,8 +41,8 @@ export const RuleGuideModal: React.FC<RuleGuideModalProps> = ({ onClose }) => {
           <div>
             <h4 style={{ color: '#00ffaa', fontSize: '14px', marginBottom: '4px' }}>🏃 1ターンのアクション (順序自由)</h4>
             <p>
-              1. <strong>移動</strong>: 最大3名まで、前後左右斜めに「最大2マス」移動（味方・相手のすり抜け可能）。ボール保持者の移動はドリブルになります。<br />
-              2. <strong>パス / シュート</strong>: 1ターンに最大2回まで、縦横斜めの直線状に無制限距離で出せます。ゴール枠へ向かう直線パスは「シュート」になります。
+              1. <strong>移動</strong>: 最大3名まで、前後左右斜めに「最大2マス」移動（味方・相手のすり抜け可能。同一選手の複数回移動も可能）。ボール保持者の移動はドリブルになります。<br />
+              2. <strong>パス / シュート</strong>: 1ターンに最大2回まで、縦横斜めの直線状に<strong>「最大6マス以内」</strong>で出せます。相手ゴール枠へ向かう直線パスは「シュート」になります。
             </p>
           </div>
 
@@ -52,6 +52,7 @@ export const RuleGuideModal: React.FC<RuleGuideModalProps> = ({ onClose }) => {
               ・<strong>ペナルティエリア内セーブ保証</strong>: センターと上下インサイドのゴール手前2列（Row 3〜5, Col 1〜2 または 11〜12）にGKがいる際、ゴールへのシュートに対して直線上にいなくても必ずGKとの勝負が発生します。<br />
               ・<strong>GK手を使ったセーブ (能力+1)</strong>: ゴールに向かうシュートが打たれたときのみ、守備側GKは手を使って守れるルールとして能力値が「+1」されます。<br />
               ・<strong>シュートコース上のDFによるGK能力加算 (+1/名)</strong>: シュートコース上に相手ディフェンダーがいた場合、ディフェンダーの人数分だけGKの能力が「+1」加算（コース限定・壁補正）されます！<br />
+              ・<strong>GKボール保持時のタックル禁止 (GK保護)</strong>: ゴールキーパーがボールを保持している間は、相手選手はGKにタックルに行くことができません。<br />
               ・<strong>GKボーナス移動</strong>: GKがボールを保持しているターンに限り、追加でGK自身を1回移動できます。
             </p>
           </div>
@@ -66,7 +67,7 @@ export const RuleGuideModal: React.FC<RuleGuideModalProps> = ({ onClose }) => {
           <div>
             <h4 style={{ color: '#ffaa00', fontSize: '14px', marginBottom: '4px' }}>🎲 サイコロ勝負（デュエル）</h4>
             <p>
-              ・<strong>タックル</strong>: 相手ボール保持マスに自分のコマを移動させた瞬間に発生。<br />
+              ・<strong>タックル</strong>: 相手ボール保持マスに自分のコマを移動させた瞬間に発生（<strong>1選手につき1ターン1回まで</strong>）。<br />
               ・<strong>パスカット/シュート阻止</strong>: パス/シュートの直線経路上に相手がいる場合に発生。<br />
               ・<strong>判定</strong>: 「能力値合計 ＋ サイコロの目（1〜6）」が大きいチームの勝利！合計値メーターに出目がリアルタイム加算されます。<br />
               ・<strong>左右配置</strong>: 仕掛けた側にかかわらず、ピッチ自陣と同じ左右配置（前半: 左Blue/右Red, 後半: 左Red/右Blue）で直感的に勝負を確認できます。

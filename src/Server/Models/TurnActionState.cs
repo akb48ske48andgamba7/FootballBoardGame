@@ -68,6 +68,19 @@ public class TurnActionState
         }
     }
 
+    // タックル制限: 1人の選手につき1ターンに1回まで
+    public HashSet<string> TackledPieceIds { get; set; } = new();
+
+    public bool CanPieceTackle(string pieceId)
+    {
+        return !TackledPieceIds.Contains(pieceId);
+    }
+
+    public void RecordTackle(string pieceId)
+    {
+        TackledPieceIds.Add(pieceId);
+    }
+
     public void RecordPassOrShot()
     {
         PassOrShotCount++;

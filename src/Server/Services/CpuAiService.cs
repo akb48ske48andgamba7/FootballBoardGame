@@ -109,8 +109,10 @@ public class CpuAiService : ICpuAiService
     {
         Position targetGoal = Position.GetTargetGoal(cpuTeam, state.Half);
 
-        // 1. シュート判定
-        if (state.CurrentTurnAction.CanPassOrShot && ballHolder.Position.IsStraightLineTo(targetGoal))
+        // 1. シュート判定 (6マス以内かつ直線)
+        if (state.CurrentTurnAction.CanPassOrShot &&
+            ballHolder.Position.IsStraightLineTo(targetGoal) &&
+            ballHolder.Position.ChebyshevDistance(targetGoal) <= 6)
         {
             state = _gameEngine.PassOrShot(targetGoal);
             if (state.PendingDuel != null || state.ActiveTeam != cpuTeam) return state;
@@ -127,7 +129,7 @@ public class CpuAiService : ICpuAiService
             }
         }
 
-        // 3. パス判定 (パス可能回数が残っている場合)
+        // 3. パス判定 (パス可能回数が残っており、6マス以内の味方へ)
         if (state.CurrentTurnAction.CanPassOrShot)
         {
             var currentBallHolder = state.Pieces.FirstOrDefault(p => p.Id == state.Ball.HolderPieceId);
@@ -135,6 +137,7 @@ public class CpuAiService : ICpuAiService
             {
                 var candidates = state.Pieces
                     .Where(p => p.Team == cpuTeam && p.Id != currentBallHolder.Id && currentBallHolder.Position.IsStraightLineTo(p.Position))
+                    .Where(p => currentBallHolder.Position.ChebyshevDistance(p.Position) <= 6)
                     .Where(p => !_offsideService.IsOffside(state, cpuTeam, p.Position))
                     .OrderBy(p => p.Position.ChebyshevDistance(targetGoal))
                     .ToList();
@@ -179,6 +182,8 @@ public class CpuAiService : ICpuAiService
     private GameState HandleDefense(TeamType cpuTeam, GameState state)
     {
         var targetPos = state.Ball.Position;
+        var enemyHolder = state.Pieces.FirstOrDefault(p => p.Id == state.Ball.HolderPieceId);
+        bool isEnemyGkHolding = enemyHolder != null && enemyHolder.IsGoalkeeper;
 
         // タックル優先、届かなければ距離を詰める
         while (state.CurrentTurnAction.StandardMovesRemaining > 0)
@@ -192,7 +197,10 @@ public class CpuAiService : ICpuAiService
             if (defender == null) break;
 
             int dist = defender.Position.ChebyshevDistance(targetPos);
-            if (dist >= 1 && dist <= 2)
+            // 相手GKがボール保持時、または今ターンすでにタックル済みの選手はタックル不可（距離を詰めるだけ）
+            bool canTackle = !isEnemyGkHolding && state.CurrentTurnAction.CanPieceTackle(defender.Id);
+
+            if (dist >= 1 && dist <= 2 && canTackle)
             {
                 state = _gameEngine.MovePiece(defender.Id, targetPos);
                 if (state.PendingDuel != null) return state;
@@ -202,6 +210,11 @@ public class CpuAiService : ICpuAiService
                 var bestMove = FindBestMoveToward(defender.Position, targetPos, state);
                 if (bestMove != null && defender.Position.ChebyshevDistance(bestMove) >= 1 && defender.Position.ChebyshevDistance(bestMove) <= 2)
                 {
+                    // GK保護またはタックル済みの場合は相手マス自体を避ける
+                    if (!canTackle && bestMove.Row == targetPos.Row && bestMove.Col == targetPos.Col)
+                    {
+                        break;
+                    }
                     state = _gameEngine.MovePiece(defender.Id, bestMove);
                 }
                 else

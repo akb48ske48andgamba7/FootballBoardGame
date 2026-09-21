@@ -472,6 +472,101 @@ public class RuleTests
         Assert.True(resolved.LastResolvedDuel.AttackerDice >= 1 && resolved.LastResolvedDuel.AttackerDice <= 6);
         Assert.True(resolved.LastResolvedDuel.DefenderDice >= 1 && resolved.LastResolvedDuel.DefenderDice <= 6);
     }
+
+    [Fact]
+    public void Tackle_OnGoalkeeperHoldingBall_ThrowsInvalidOperationException()
+    {
+        var (engine, state) = SetupRunningMatch();
+
+        // TeamAの手番
+        // TeamBのGKを (4, 4) に配置し、ボールを持たせる
+        var bGk = state.Pieces.First(p => p.Team == TeamType.TeamB && p.IsGoalkeeper);
+        bGk.Position = new Position(4, 4);
+        state.Ball.HolderPieceId = bGk.Id;
+        state.Ball.Position = bGk.Position;
+
+        // TeamAの選手を隣の (4, 3) に配置
+        var aPiece = state.Pieces.First(p => p.Team == TeamType.TeamA && !p.IsGoalkeeper);
+        aPiece.Position = new Position(4, 3);
+
+        // 実行: GKのマス (4, 4) へタックル移動を試みる
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+        {
+            engine.MovePiece(aPiece.Id, bGk.Position);
+        });
+
+        Assert.Contains("ゴールキーパーがボールを保持している間はタックルできません", ex.Message);
+    }
+
+    [Fact]
+    public void Tackle_SamePieceTwiceInOneTurn_ThrowsInvalidOperationException()
+    {
+        var (engine, state) = SetupRunningMatch();
+
+        // TeamAの手番
+        // TeamBのフィールド選手を (4, 4) に配置し、ボールを持たせる
+        var bHolder = state.Pieces.First(p => p.Team == TeamType.TeamB && !p.IsGoalkeeper);
+        bHolder.Position = new Position(4, 4);
+        state.Ball.HolderPieceId = bHolder.Id;
+        state.Ball.Position = bHolder.Position;
+
+        // TeamAの選手を (4, 3) に配置
+        var aPiece = state.Pieces.First(p => p.Team == TeamType.TeamA && !p.IsGoalkeeper);
+        aPiece.Position = new Position(4, 3);
+
+        // 1回目のタックル実行
+        engine.MovePiece(aPiece.Id, bHolder.Position);
+        Assert.NotNull(state.PendingDuel);
+        Assert.Equal(DuelType.Tackle, state.PendingDuel.Type);
+
+        // デュエルを解決（守備側が勝利してボールキープした状況をシミュレート）
+        // 判定解決
+        engine.ResolveDuel();
+        state.Ball.HolderPieceId = bHolder.Id; // ボールは依然としてTeamBがキープ
+
+        // 同じ選手 aPiece を (4, 3) に戻す
+        aPiece.Position = new Position(4, 3);
+
+        // 移動回数は残っている (1回使用 / 残り2回)
+        Assert.True(state.CurrentTurnAction.StandardMovesRemaining > 0);
+
+        // 2回目のタックル試行 -> 例外がスローされること！
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+        {
+            engine.MovePiece(aPiece.Id, bHolder.Position);
+        });
+
+        Assert.Contains("1ターン1回制限", ex.Message);
+    }
+
+    [Fact]
+    public void PassOrShot_DistanceGreaterThanSix_ThrowsInvalidOperationException()
+    {
+        var (engine, state) = SetupRunningMatch();
+
+        var ballHolder = state.Pieces.First(p => p.Team == TeamType.TeamA && !p.IsGoalkeeper);
+
+        // 経路上の選手を退避してRow 1を完全にクリアにする
+        foreach (var p in state.Pieces)
+        {
+            if (p.Position.Row == 1) p.Position = new Position(7, p.Position.Col);
+        }
+
+        ballHolder.Position = new Position(1, 1);
+        state.Ball.HolderPieceId = ballHolder.Id;
+        state.Ball.Position = ballHolder.Position;
+
+        // 1. 7マス離れた (1, 8) へのパス試行 -> 例外 (8 - 1 = 7マス)
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+        {
+            engine.PassOrShot(new Position(1, 8));
+        });
+        Assert.Contains("最大距離は6マス以内です", ex.Message);
+
+        // 2. 6マス離れた (1, 7) へのパス試行 -> 成功 (7 - 1 = 6マス)
+        var afterPass = engine.PassOrShot(new Position(1, 7));
+        Assert.Equal(7, afterPass.Ball.Position.Col);
+    }
 }
 
 

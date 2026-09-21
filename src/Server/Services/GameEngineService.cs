@@ -240,6 +240,29 @@ public class GameEngineService : IGameEngineService
             throw new InvalidOperationException("今ターンのこのコマの移動可能回数は残っていません。");
         }
 
+        // タックル対象（移動先に相手ボール保持者がいるか）の事前バリデーション
+        var opposingTeam = _state.ActiveTeam == TeamType.TeamA ? TeamType.TeamB : TeamType.TeamA;
+        var enemyBallHolder = _state.Pieces.FirstOrDefault(p =>
+            p.Team == opposingTeam &&
+            p.Position.Row == targetPosition.Row &&
+            p.Position.Col == targetPosition.Col &&
+            _state.Ball.HolderPieceId == p.Id);
+
+        if (enemyBallHolder != null)
+        {
+            // 要件: ゴールキーパーがボールを保持しているときはタックル不可
+            if (enemyBallHolder.IsGoalkeeper)
+            {
+                throw new InvalidOperationException("相手ゴールキーパーがボールを保持している間はタックルできません（GK保護ルール）。");
+            }
+
+            // 要件: タックルに行けるのは1選手1ターンに1度
+            if (!_state.CurrentTurnAction.CanPieceTackle(piece.Id))
+            {
+                throw new InvalidOperationException($"{piece.Name} は今ターンすでにタックルを試みたため、再度タックルに行くことはできません（1ターン1回制限）。");
+            }
+        }
+
         bool isHoldingBall = _state.Ball.HolderPieceId == piece.Id;
 
         piece.Position = targetPosition;
@@ -263,11 +286,10 @@ public class GameEngineService : IGameEngineService
         UpdateGkPrivilege();
 
         // タックル判定
-        var opposingTeam = _state.ActiveTeam == TeamType.TeamA ? TeamType.TeamB : TeamType.TeamA;
-        var enemyBallHolder = _state.Pieces.FirstOrDefault(p => p.Team == opposingTeam && p.Position.Row == targetPosition.Row && p.Position.Col == targetPosition.Col && _state.Ball.HolderPieceId == p.Id);
-
         if (enemyBallHolder != null)
         {
+            _state.CurrentTurnAction.RecordTackle(piece.Id);
+
             var attackers = _state.Pieces
                 .Where(p => p.Team == _state.ActiveTeam && p.Position.Row == targetPosition.Row && p.Position.Col == targetPosition.Col)
                 .Select(p => new DuelParticipant { PieceId = p.Id, Name = p.Name, Number = p.Number, Ability = p.Ability, IsGoalkeeper = p.IsGoalkeeper })
@@ -333,6 +355,13 @@ public class GameEngineService : IGameEngineService
         if (!startPos.IsStraightLineTo(targetPosition))
         {
             throw new InvalidOperationException("パス・シュートは縦・横・斜めの直線でなければなりません。");
+        }
+
+        // 要件: パスおよびシュートの最大飛距離は前後左右斜め6マス以内
+        int distance = startPos.ChebyshevDistance(targetPosition);
+        if (distance > 6)
+        {
+            throw new InvalidOperationException($"パス・シュートの最大距離は6マス以内です（指定距離: {distance}マス）。");
         }
 
         _state.CurrentTurnAction.RecordPassOrShot();

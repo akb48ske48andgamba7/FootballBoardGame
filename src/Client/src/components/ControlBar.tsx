@@ -18,6 +18,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   const action = state.currentTurnAction;
   const remainingMoves = action?.standardMovesRemaining ?? 0;
   const remainingPasses = action?.remainingPassOrShots ?? 0;
+  const isPlaying = state.phase === 'FirstHalf' || state.phase === 'SecondHalf';
 
   const currentTeamPieces = state.pieces.filter((p) => p.team === state.activeTeam);
   const teamHasBall = currentTeamPieces.some((p) => p.id === state.ball.holderPieceId);
@@ -61,10 +62,12 @@ export const ControlBar: React.FC<ControlBarProps> = ({
       <div className="control-buttons">
         <button
           className={`btn-action btn-pass ${isPassMode ? 'active' : ''}`}
-          disabled={!teamHasBall || remainingPasses <= 0}
+          disabled={!isPlaying || !teamHasBall || remainingPasses <= 0}
           onClick={onTogglePassMode}
           title={
-            !teamHasBall
+            !isPlaying
+              ? '試合進行中のみ操作可能'
+              : !teamHasBall
               ? 'ボール保持時のみパス/シュート可能'
               : remainingPasses <= 0
               ? '今ターンはすでにパス/シュート制限(2回)に到達'
@@ -78,7 +81,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         <button
           className="btn-action btn-end-turn"
           onClick={onEndTurn}
-          disabled={state.pendingDuel !== null}
+          disabled={!isPlaying || state.pendingDuel !== null}
         >
           <span>ターン終了</span>
           <ArrowRight size={16} />

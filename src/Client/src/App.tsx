@@ -121,7 +121,7 @@ export function App() {
   };
 
   const handleSelectPiece = (pieceId: string) => {
-    if (!state) return;
+    if (!state || (state.phase !== 'FirstHalf' && state.phase !== 'SecondHalf')) return;
     if (selectedPieceId === pieceId) {
       setSelectedPieceId(null);
     } else {
@@ -131,6 +131,7 @@ export function App() {
   };
 
   const handleMovePiece = async (pieceId: string, row: number, col: number) => {
+    if (!state || (state.phase !== 'FirstHalf' && state.phase !== 'SecondHalf')) return;
     try {
       const updated = await api.movePiece(pieceId, row, col);
       setState(updated);
@@ -142,6 +143,7 @@ export function App() {
   };
 
   const handlePassOrShot = async (row: number, col: number) => {
+    if (!state || (state.phase !== 'FirstHalf' && state.phase !== 'SecondHalf')) return;
     try {
       const updated = await api.passOrShot(row, col);
       setState(updated);
@@ -165,6 +167,7 @@ export function App() {
   };
 
   const handleEndTurn = async () => {
+    if (!state || (state.phase !== 'FirstHalf' && state.phase !== 'SecondHalf')) return;
     try {
       const updated = await api.endTurn();
       setState(updated);
@@ -246,7 +249,8 @@ export function App() {
     state.phase === 'SetupSecondHalfA' ||
     (state.mode === 'PvP' && (state.phase === 'SetupFirstHalfB' || state.phase === 'SetupSecondHalfB'));
 
-  const isUserTurn = state.mode === 'PvP' || state.activeTeam === 'TeamA';
+  const isPlaying = state.phase === 'FirstHalf' || state.phase === 'SecondHalf';
+  const isUserTurn = isPlaying && (state.mode === 'PvP' || state.activeTeam === 'TeamA');
 
   return (
     <div className="game-root">
@@ -275,7 +279,7 @@ export function App() {
         >
           <span>⚠️ {error}</span>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {state.activeTeam === 'TeamB' && (
+            {state.activeTeam === 'TeamB' && isPlaying && (
               <button
                 className="btn-action"
                 style={{
@@ -317,12 +321,12 @@ export function App() {
         state={state}
         isPassMode={isPassMode}
         onTogglePassMode={() => {
-          if (!isUserTurn) return;
+          if (!isUserTurn || !isPlaying) return;
           setIsPassMode(!isPassMode);
           setSelectedPieceId(null);
         }}
         onEndTurn={() => {
-          if (!isUserTurn) return;
+          if (!isUserTurn || !isPlaying) return;
           handleEndTurn();
         }}
       />
@@ -332,15 +336,15 @@ export function App() {
         selectedPieceId={selectedPieceId}
         isPassMode={isPassMode}
         onSelectPiece={(id) => {
-          if (!isUserTurn) return;
+          if (!isUserTurn || !isPlaying) return;
           handleSelectPiece(id);
         }}
         onMovePiece={(id, r, c) => {
-          if (!isUserTurn) return;
+          if (!isUserTurn || !isPlaying) return;
           handleMovePiece(id, r, c);
         }}
         onPassOrShot={(r, c) => {
-          if (!isUserTurn) return;
+          if (!isUserTurn || !isPlaying) return;
           handlePassOrShot(r, c);
         }}
       />

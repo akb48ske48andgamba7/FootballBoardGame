@@ -46,6 +46,7 @@ export interface TurnActionState {
   gkBonusAvailable: boolean;
   hasUsedGkBonusMove: boolean;
   standardMovesRemaining: number;
+  tackledPieceIds?: string[];
 }
 
 export type DuelType = 'Tackle' | 'Intercept' | 'Shot';
