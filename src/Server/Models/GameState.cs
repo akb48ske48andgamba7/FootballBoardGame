@@ -61,6 +61,7 @@ public class GameState
     public TurnActionState CurrentTurnAction { get; set; } = new();
 
     public DuelContext? PendingDuel { get; set; }
+    public DuelContext? LastResolvedDuel { get; set; }
     public List<string> MatchLogs { get; set; } = new();
 
     public string? OffsideWarning { get; set; }

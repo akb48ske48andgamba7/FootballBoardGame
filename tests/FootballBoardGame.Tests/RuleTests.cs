@@ -9,6 +9,17 @@ public class RuleTests
     private readonly IDiceService _diceService = new DiceService();
     private readonly IOffsideRuleService _offsideService = new OffsideRuleService();
 
+    private (GameEngineService engine, GameState state) SetupRunningMatch()
+    {
+        var gameEngine = new GameEngineService(_diceService, _offsideService);
+        var state = gameEngine.GetCurrentState();
+        gameEngine.SetupTeam(TeamType.TeamA, state.Pieces.Where(p => p.Team == TeamType.TeamA)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+        gameEngine.SetupTeam(TeamType.TeamB, state.Pieces.Where(p => p.Team == TeamType.TeamB)
+            .Select(p => new PiecePlacementDto(p.Id, p.Position.Row, p.Position.Col)).ToList());
+        return (gameEngine, gameEngine.GetCurrentState());
+    }
+
     [Fact]
     public void TeamComposition_ShouldHaveCorrectAbilitiesAndGK()
     {
@@ -401,6 +412,65 @@ public class RuleTests
                 Assert.True(p.Position.Col <= 6); // 全員が自陣側に戻っている
             }
         }
+    }
+
+    [Fact]
+    public void Shot_WithDefendersOnCourse_AddsBonusToGk()
+    {
+        // 準備: ゲーム開始
+        var (engine, state) = SetupRunningMatch();
+
+        // ボールホルダー (TeamA, 能力3) を (Row 4, Col 8) に配置
+        var shooter = state.Pieces.First(p => p.Team == TeamType.TeamA && !p.IsGoalkeeper);
+        shooter.Ability = 3;
+        shooter.Position = new Position(4, 8);
+        state.Ball.HolderPieceId = shooter.Id;
+        state.Ball.Position = shooter.Position;
+
+        // TeamBのGK (能力2) をペナルティエリア内 (Row 4, Col 12) に配置
+        var bGk = state.Pieces.First(p => p.Team == TeamType.TeamB && p.IsGoalkeeper);
+        bGk.Ability = 2;
+        bGk.Position = new Position(4, 12);
+
+        // コース上 (4, 9) と (4, 10) に TeamB のフィールド選手を2名配置
+        var bDefenders = state.Pieces.Where(p => p.Team == TeamType.TeamB && !p.IsGoalkeeper).Take(2).ToList();
+        bDefenders[0].Position = new Position(4, 9);
+        bDefenders[1].Position = new Position(4, 10);
+
+        // 他のTeamB選手はコース外 (Row 1 または 2) に退避
+        var otherB = state.Pieces.Where(p => p.Team == TeamType.TeamB && p.Id != bGk.Id && !bDefenders.Any(d => d.Id == p.Id)).ToList();
+        int c = 1;
+        foreach (var p in otherB)
+        {
+            p.Position = new Position(1, c++);
+        }
+
+        // 実行: ゴールに向けてシュート！
+        var afterShot = engine.PassOrShot(Position.GoalB);
+
+        // 検証:
+        // 1. シュート対決が発生していること
+        Assert.NotNull(afterShot.PendingDuel);
+        var duel = afterShot.PendingDuel;
+        Assert.Equal(DuelType.Shot, duel.Type);
+
+        // 2. 守備側参加者はGKであること
+        Assert.Single(duel.Defenders);
+        var defender = duel.Defenders[0];
+        Assert.True(defender.IsGoalkeeper);
+        Assert.Equal(bGk.Id, defender.PieceId);
+
+        // 3. GK能力ボーナス: 手守備(+1) ＋ コース上のDF2名(+2) = 3 であること！
+        Assert.Equal(3, defender.AbilityBonus);
+        Assert.Equal(2, defender.Ability);
+        Assert.Equal(5, defender.TotalAbility); // 基礎2 + ボーナス3 = 5
+
+        // 4. ResolveDuel実行後、LastResolvedDuelに結果が正しく保存されること
+        var resolved = engine.ResolveDuel();
+        Assert.Null(resolved.PendingDuel);
+        Assert.NotNull(resolved.LastResolvedDuel);
+        Assert.True(resolved.LastResolvedDuel.AttackerDice >= 1 && resolved.LastResolvedDuel.AttackerDice <= 6);
+        Assert.True(resolved.LastResolvedDuel.DefenderDice >= 1 && resolved.LastResolvedDuel.DefenderDice <= 6);
     }
 }
 

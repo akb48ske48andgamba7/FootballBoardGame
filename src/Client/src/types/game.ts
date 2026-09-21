@@ -97,6 +97,7 @@ export interface GameState {
   ball: Ball;
   currentTurnAction: TurnActionState;
   pendingDuel: DuelContext | null;
+  lastResolvedDuel?: DuelContext | null;
   matchLogs: string[];
   offsideWarning: string | null;
 }

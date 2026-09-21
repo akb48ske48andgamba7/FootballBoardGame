@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 
 interface DiceModalProps {
   duel: DuelContext;
+  half: number;
   onRollAndResolve: () => Promise<GameState | null>;
   onFinish: (updatedState: GameState) => void;
 }
@@ -13,18 +14,19 @@ interface DiceModalProps {
  * 
  * タックル、インターセプト、シュート阻止の「1対1の真剣勝負（デュエル）」をドラマチックに演出するコンポーネントです。
  * 
- * ■ アニメーションとUX（ユーザー体験）の技術ポイント:
- * 1. ダイス回転アニメーション:
- *    - `setInterval` で 80ms ごとにランダムな出目を激しく切り替え、サイコロが転がっている臨場感を表現。
- * 2. 判定結果の「3秒間保持」:
- *    - サーバーで計算された最新の出目や勝敗メッセージを受け取った後、
- *      すぐにモーダルを閉じずに約3秒間カウントダウン表示を維持し、結果をじっくり味わえるようにしています。
- * 3. 即時スキップ機能:
- *    - 「OK (盤面に戻る)」ボタンを用意し、プレイヤーが自分のペースでゲームを進められるよう配慮しています。
- * 4. 紙吹雪演出:
- *    - `canvas-confetti` ライブラリを使用して、勝利時・ゴール時に華やかな紙吹雪を舞わせます。
+ * ■ 要件と機能:
+ * 1. ピッチ自陣配置に合わせた左右表示:
+ *    - 前半 (Half 1): 左が TEAM BLUE (TeamA)、右が TEAM RED (TeamB)
+ *    - 後半 (Half 2): 陣地交代により左が TEAM RED (TeamB)、右が TEAM BLUE (TeamA)
+ *    - 仕掛けた側・受け側にかかわらず盤面の左右と完全に一致します。
+ * 2. 役割バッジ (⚔️ ATTACK / 🛡️ DEFENSE):
+ *    - どちらが仕掛けた攻撃側で、どちらが守備側なのかが一目で分かります。
+ * 3. 能力値 ＋ サイコロ出目の正確な合計値表示:
+ *    - サーバー計算およびクライアント出目を正確に合計値およびメーターに反映します。
+ * 4. 判定結果の3秒保持 & スキップ:
+ *    - 勝敗確定後3秒間カウントダウン表示し、「OK (盤面に戻る)」で即座に進めることも可能です。
  */
-export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve, onFinish }) => {
+export const DiceModal: React.FC<DiceModalProps> = ({ duel, half, onRollAndResolve, onFinish }) => {
   const [isRolling, setIsRolling] = useState(false);
   const [displayAttackerDice, setDisplayAttackerDice] = useState<number>(1);
   const [displayDefenderDice, setDisplayDefenderDice] = useState<number>(1);
@@ -71,10 +73,16 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve, on
           : '勝負判定が完了しました！';
         setResultMessage(lastLog);
 
-        // 解決後の出目を反映 (もしサーバーのログやduelから取得できれば更新)
-        // デュエル解決直後の情報
-        const currentDuel = nextState.pendingDuel || duel;
+        // 解決後の出目を反映 (サーバーの lastResolvedDuel から取得)
+        const currentDuel = nextState.lastResolvedDuel || nextState.pendingDuel || duel;
         setResolvedDuel(currentDuel);
+
+        if (currentDuel.attackerDice != null) {
+          setDisplayAttackerDice(currentDuel.attackerDice);
+        }
+        if (currentDuel.defenderDice != null) {
+          setDisplayDefenderDice(currentDuel.defenderDice);
+        }
 
         // 紙吹雪
         confetti({
@@ -108,15 +116,51 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve, on
   }, [resolvedState, countdown, onFinish]);
 
   const activeDuel = resolvedDuel || duel;
+
+  // 出目と合計値の計算 (確定後は出目を確実に加算)
   const attackerDiceVal = activeDuel.attackerDice ?? displayAttackerDice;
   const defenderDiceVal = activeDuel.defenderDice ?? displayDefenderDice;
 
-  const attackerTotal = activeDuel.attackerAbilitySum + (isRolling ? displayAttackerDice : (activeDuel.attackerDice ?? 0));
-  const defenderTotal = activeDuel.defenderAbilitySum + (isRolling ? displayDefenderDice : (activeDuel.defenderDice ?? 0));
+  const attackerTotal = activeDuel.attackerAbilitySum + attackerDiceVal;
+  const defenderTotal = activeDuel.defenderAbilitySum + defenderDiceVal;
 
-  const totalSum = Math.max(1, attackerTotal + defenderTotal);
-  const attackerPercent = Math.round((attackerTotal / totalSum) * 100);
-  const defenderPercent = 100 - attackerPercent;
+  // ==========================================
+  // ピッチ自陣配置に合わせた左右チーム判定
+  // 前半 (half == 1): 左 = TeamA (BLUE), 右 = TeamB (RED)
+  // 後半 (half == 2): 左 = TeamB (RED), 右 = TeamA (BLUE)
+  // ==========================================
+  const leftTeam = half === 1 ? 'TeamA' : 'TeamB';
+  const rightTeam = half === 1 ? 'TeamB' : 'TeamA';
+
+  const isLeftAttacker = activeDuel.attackingTeam === leftTeam;
+  const isRightAttacker = activeDuel.attackingTeam === rightTeam;
+
+  const leftDiceVal = isLeftAttacker ? attackerDiceVal : defenderDiceVal;
+  const rightDiceVal = isRightAttacker ? attackerDiceVal : defenderDiceVal;
+
+  const leftTotal = isLeftAttacker ? attackerTotal : defenderTotal;
+  const rightTotal = isRightAttacker ? attackerTotal : defenderTotal;
+
+  const leftAbilitySum = isLeftAttacker ? activeDuel.attackerAbilitySum : activeDuel.defenderAbilitySum;
+  const rightAbilitySum = isRightAttacker ? activeDuel.attackerAbilitySum : activeDuel.defenderAbilitySum;
+
+  const leftParticipants = isLeftAttacker ? activeDuel.attackers : activeDuel.defenders;
+  const rightParticipants = isRightAttacker ? activeDuel.attackers : activeDuel.defenders;
+
+  const leftColor = leftTeam === 'TeamA' ? 'var(--teamA-primary)' : 'var(--teamB-primary)';
+  const rightColor = rightTeam === 'TeamA' ? 'var(--teamA-primary)' : 'var(--teamB-primary)';
+
+  const leftName = leftTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED';
+  const rightName = rightTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED';
+
+  // GK手守備ボーナスやシュートコース上DF補正の有無
+  const leftGkParticipant = !isLeftAttacker ? activeDuel.defenders.find((d) => d.isGoalkeeper && d.abilityBonus > 0) : null;
+  const rightGkParticipant = !isRightAttacker ? activeDuel.defenders.find((d) => d.isGoalkeeper && d.abilityBonus > 0) : null;
+
+  // 下部メーターの計算 (左チーム vs 右チーム)
+  const totalSum = Math.max(1, leftTotal + rightTotal);
+  const leftPercent = Math.round((leftTotal / totalSum) * 100);
+  const rightPercent = 100 - leftPercent;
 
   return (
     <div className="modal-overlay">
@@ -134,85 +178,135 @@ export const DiceModal: React.FC<DiceModalProps> = ({ duel, onRollAndResolve, on
         </h3>
 
         <div className="duel-arena">
-          {/* アタッカー (仕掛けた側) */}
+          {/* 左側チーム (ピッチ自陣の左側) */}
           <div className="duel-fighter">
-            <span
-              className="fighter-name"
+            {/* 役割バッジ (攻撃 or 守備) */}
+            <div
               style={{
-                color: activeDuel.attackingTeam === 'TeamA' ? 'var(--teamA-primary)' : 'var(--teamB-primary)',
+                fontSize: '12px',
+                fontWeight: 800,
+                padding: '3px 10px',
+                borderRadius: '12px',
+                display: 'inline-block',
+                marginBottom: '4px',
+                background: isLeftAttacker ? 'rgba(0, 210, 255, 0.2)' : 'rgba(255, 51, 102, 0.2)',
+                border: `1px solid ${isLeftAttacker ? 'var(--teamA-primary)' : 'var(--teamB-primary)'}`,
+                color: isLeftAttacker ? 'var(--teamA-primary)' : 'var(--teamB-primary)',
               }}
             >
-              {activeDuel.attackingTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED'}
+              {isLeftAttacker ? '⚔️ ATTACK (仕掛け側)' : '🛡️ DEFENSE (受け側)'}
+            </div>
+
+            <span className="fighter-name" style={{ color: leftColor }}>
+              {leftName}
               <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {activeDuel.attackers.map((a) => `${a.name} (★${a.ability})`).join(', ')}
+                {leftParticipants.map((p) =>
+                  p.abilityBonus > 0
+                    ? `${p.name} (★${p.ability} + 🧤補正+${p.abilityBonus})`
+                    : `${p.name} (★${p.ability})`
+                ).join(', ')}
               </div>
             </span>
 
+            {leftGkParticipant && (
+              <div className="gk-save-bonus-badge" style={{ fontSize: '13px', padding: '4px 10px', margin: '4px 0' }}>
+                🧤 GK手守備＆コース補正: 能力+{leftGkParticipant.abilityBonus}
+              </div>
+            )}
+
             <div className="fighter-ability-badge">
-              基礎能力合計: <span className="fighter-ability-val">{activeDuel.attackerAbilitySum}</span>
+              {isLeftAttacker ? '基礎能力合計: ' : '能力合計: '}
+              <span className="fighter-ability-val">{leftAbilitySum}</span>
             </div>
 
             {/* 3Dサイコロ */}
             <div className={`dice-cube ${isRolling ? 'rolling' : ''}`}>
-              {getDiceIcon(attackerDiceVal)}
+              {getDiceIcon(leftDiceVal)}
             </div>
 
             <div style={{ fontSize: '22px', fontWeight: 800 }}>
-              出目: +{attackerDiceVal}
+              出目: +{leftDiceVal}
             </div>
           </div>
 
           <div className="vs-divider">VS</div>
 
-          {/* ディフェンダー (受け側) */}
+          {/* 右側チーム (ピッチ自陣の右側) */}
           <div className="duel-fighter">
-            <span
-              className="fighter-name"
+            {/* 役割バッジ (攻撃 or 守備) */}
+            <div
               style={{
-                color: activeDuel.defendingTeam === 'TeamA' ? 'var(--teamA-primary)' : 'var(--teamB-primary)',
+                fontSize: '12px',
+                fontWeight: 800,
+                padding: '3px 10px',
+                borderRadius: '12px',
+                display: 'inline-block',
+                marginBottom: '4px',
+                background: isRightAttacker ? 'rgba(0, 210, 255, 0.2)' : 'rgba(255, 51, 102, 0.2)',
+                border: `1px solid ${isRightAttacker ? 'var(--teamA-primary)' : 'var(--teamB-primary)'}`,
+                color: isRightAttacker ? 'var(--teamA-primary)' : 'var(--teamB-primary)',
               }}
             >
-              {activeDuel.defendingTeam === 'TeamA' ? 'TEAM BLUE' : 'TEAM RED'}
+              {isRightAttacker ? '⚔️ ATTACK (仕掛け側)' : '🛡️ DEFENSE (受け側)'}
+            </div>
+
+            <span className="fighter-name" style={{ color: rightColor }}>
+              {rightName}
               <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {activeDuel.defenders.map((d) =>
-                  d.abilityBonus > 0
-                    ? `${d.name} (★${d.ability} + 🧤手守備+${d.abilityBonus})`
-                    : `${d.name} (★${d.ability})`
+                {rightParticipants.map((p) =>
+                  p.abilityBonus > 0
+                    ? `${p.name} (★${p.ability} + 🧤補正+${p.abilityBonus})`
+                    : `${p.name} (★${p.ability})`
                 ).join(', ')}
               </div>
             </span>
 
-            {activeDuel.hasGkHandBonus && (
-              <div className="gk-save-bonus-badge" style={{ fontSize: '14px', padding: '4px 12px' }}>
-                🧤 GK手を使った守備: 能力+1
+            {rightGkParticipant && (
+              <div className="gk-save-bonus-badge" style={{ fontSize: '13px', padding: '4px 10px', margin: '4px 0' }}>
+                🧤 GK手守備＆コース補正: 能力+{rightGkParticipant.abilityBonus}
               </div>
             )}
 
             <div className="fighter-ability-badge">
-              能力合計: <span className="fighter-ability-val">{activeDuel.defenderAbilitySum}</span>
+              {isRightAttacker ? '基礎能力合計: ' : '能力合計: '}
+              <span className="fighter-ability-val">{rightAbilitySum}</span>
             </div>
 
             {/* 3Dサイコロ */}
             <div className={`dice-cube ${isRolling ? 'rolling' : ''}`}>
-              {getDiceIcon(defenderDiceVal)}
+              {getDiceIcon(rightDiceVal)}
             </div>
 
             <div style={{ fontSize: '22px', fontWeight: 800 }}>
-              出目: +{defenderDiceVal}
+              出目: +{rightDiceVal}
             </div>
           </div>
         </div>
 
-        {/* 比較メーター */}
+        {/* 比較メーター (左チーム vs 右チーム) */}
         <div className="duel-meter-container">
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: 800 }}>
-            <span style={{ color: 'var(--teamA-primary)' }}>合計: {attackerTotal}</span>
-            <span style={{ color: 'var(--teamB-primary)' }}>合計: {defenderTotal}</span>
+            <span style={{ color: leftColor }}>合計: {leftTotal}</span>
+            <span style={{ color: rightColor }}>合計: {rightTotal}</span>
           </div>
 
           <div className="meter-track">
-            <div className="meter-fill-attacker" style={{ width: `${attackerPercent}%` }} />
-            <div className="meter-fill-defender" style={{ width: `${defenderPercent}%` }} />
+            <div
+              style={{
+                width: `${leftPercent}%`,
+                background: leftColor,
+                height: '100%',
+                transition: 'width 0.3s ease',
+              }}
+            />
+            <div
+              style={{
+                width: `${rightPercent}%`,
+                background: rightColor,
+                height: '100%',
+                transition: 'width 0.3s ease',
+              }}
+            />
           </div>
         </div>
 

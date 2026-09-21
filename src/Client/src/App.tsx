@@ -351,6 +351,7 @@ export function App() {
       {state.pendingDuel && (
         <DiceModal
           duel={state.pendingDuel}
+          half={state.half}
           onRollAndResolve={handleResolveDuel}
           onFinish={(updatedState) => {
             setState(updatedState);

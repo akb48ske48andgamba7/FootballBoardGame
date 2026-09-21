@@ -342,44 +342,38 @@ public class GameEngineService : IGameEngineService
 
         // 守備側GKを取得
         var defendingGk = _state.Pieces.FirstOrDefault(p => p.Team == opposingTeam && p.IsGoalkeeper);
-        // GKがペナルティエリア内にいるか（センターと上下のインサイド Row 3〜5 かつ ゴールに最も近い列 Col 1 または Col 12）
+        // GKがペナルティエリア内にいるか（センターと上下のインサイド Row 3〜5 かつ ゴール側2列 Col 1〜2 または Col 11〜12）
         bool isGkInPenaltyArea = defendingGk != null && defendingGk.Position.IsInPenaltyArea(opposingTeam, _state.Half);
 
-        // ルート上の敵ディフェンダーチェック
-        foreach (var step in intermediatePath)
-        {
-            var defendersAtStep = _state.Pieces.Where(p => p.Team == opposingTeam && p.Position.Row == step.Row && p.Position.Col == step.Col).ToList();
-            if (defendersAtStep.Any())
-            {
-                CreateInterceptOrShotDuel(ballHolder, defendersAtStep, step, targetPosition, isShot, isGkInPenaltyArea, defendingGk);
-                return GetCurrentState();
-            }
-        }
-
-        // シュートの場合
+        // ==========================================
+        // A. シュート時の判定ロジック
+        // ==========================================
         if (isShot)
         {
-            // ゴール直前マスの守備者チェック
-            int goalEntranceCol = targetGoal.Col == 0 ? 1 : 12;
-            var goalEntranceDefenders = _state.Pieces
-                .Where(p => p.Team == opposingTeam && p.Position.Row == targetGoal.Row && p.Position.Col == goalEntranceCol)
+            // シュートコース上（始点からゴール直前まで）にいる相手選手を調査
+            var courseOpponents = intermediatePath
+                .SelectMany(pos => _state.Pieces.Where(p => p.Team == opposingTeam && p.Position.Row == pos.Row && p.Position.Col == pos.Col))
+                .Distinct()
                 .ToList();
 
-            if (goalEntranceDefenders.Any())
+            // GK以外の相手フィールドプレーヤー（コース上のディフェンダー）
+            var courseFieldDefenders = courseOpponents.Where(p => !p.IsGoalkeeper).ToList();
+            bool isGkOnCourse = courseOpponents.Any(p => p.IsGoalkeeper);
+
+            // 要件: ペナルティエリア内にGKがいる場合、またはGKがシュートコース上にいる場合、
+            // シュートコースにいたディフェンダーの数だけゴールキーパーの能力を+1加算！
+            if ((isGkInPenaltyArea || isGkOnCourse) && defendingGk != null)
             {
-                CreateInterceptOrShotDuel(ballHolder, goalEntranceDefenders, new Position(targetGoal.Row, goalEntranceCol), targetGoal, true, isGkInPenaltyArea, defendingGk);
+                CreateShotDuelWithGk(ballHolder, defendingGk, courseFieldDefenders.Count, targetGoal);
                 return GetCurrentState();
             }
 
-            // 要件: ペナルティエリア内（Row 3〜5, Col 1 or 12）にGKがいる場合、シュート直線上にいなくても必ずGKとシュート阻止勝負！
-            if (isGkInPenaltyArea && defendingGk != null)
+            // GKがPA外でコース上にもいないが、コース上に相手ディフェンダーがいる場合は手前のDFがシュートブロック
+            if (courseFieldDefenders.Any())
             {
-                // GKがいるマスでシュート阻止勝負を発生
-                var defenders = _state.Pieces
-                    .Where(p => p.Team == opposingTeam && p.Position.Row == defendingGk.Position.Row && p.Position.Col == defendingGk.Position.Col)
-                    .ToList();
-
-                CreateInterceptOrShotDuel(ballHolder, defenders, defendingGk.Position, targetGoal, true, true, defendingGk);
+                var firstBlockPos = intermediatePath.First(pos => courseFieldDefenders.Any(d => d.Position.Row == pos.Row && d.Position.Col == pos.Col));
+                var defendersAtStep = courseFieldDefenders.Where(d => d.Position.Row == firstBlockPos.Row && d.Position.Col == firstBlockPos.Col).ToList();
+                CreateFieldBlockDuel(ballHolder, defendersAtStep, firstBlockPos, targetGoal);
                 return GetCurrentState();
             }
 
@@ -388,15 +382,29 @@ public class GameEngineService : IGameEngineService
             return GetCurrentState();
         }
 
-        // 通常パスの場合: 到着先マスに相手がいるか
+        // ==========================================
+        // B. 通常パス時の判定ロジック
+        // ==========================================
+        // 1. パス経路上の敵ディフェンダーによるインターセプト
+        foreach (var step in intermediatePath)
+        {
+            var defendersAtStep = _state.Pieces.Where(p => p.Team == opposingTeam && p.Position.Row == step.Row && p.Position.Col == step.Col).ToList();
+            if (defendersAtStep.Any())
+            {
+                CreateInterceptDuel(ballHolder, defendersAtStep, step, targetPosition);
+                return GetCurrentState();
+            }
+        }
+
+        // 2. パス到達先マスに相手がいる場合のインターセプト
         var defendersAtTarget = _state.Pieces.Where(p => p.Team == opposingTeam && p.Position.Row == targetPosition.Row && p.Position.Col == targetPosition.Col).ToList();
         if (defendersAtTarget.Any())
         {
-            CreateInterceptOrShotDuel(ballHolder, defendersAtTarget, targetPosition, targetPosition, false, false, null);
+            CreateInterceptDuel(ballHolder, defendersAtTarget, targetPosition, targetPosition);
             return GetCurrentState();
         }
 
-        // オフサイド判定
+        // 3. オフサイド判定
         var receiver = _state.Pieces.FirstOrDefault(p => p.Team == _state.ActiveTeam && p.Position.Row == targetPosition.Row && p.Position.Col == targetPosition.Col);
         if (receiver != null && _offsideService.IsOffside(_state, _state.ActiveTeam, targetPosition))
         {
@@ -407,7 +415,7 @@ public class GameEngineService : IGameEngineService
             return GetCurrentState();
         }
 
-        // パス成功！
+        // 4. パス成功！
         _state.Ball.Position = targetPosition;
         if (receiver != null)
         {
@@ -424,52 +432,117 @@ public class GameEngineService : IGameEngineService
         return GetCurrentState();
     }
 
-    private void CreateInterceptOrShotDuel(
+    /// <summary>
+    /// 【要件対応】GKとのシュート阻止勝負を生成。
+    /// 手を使った守備ボーナス(+1)に加え、シュートコース上にディフェンダーがいた場合、その人数分GKの能力を+1加算します。
+    /// </summary>
+    private void CreateShotDuelWithGk(
         Piece attacker,
-        List<Piece> defenders,
-        Position duelPos,
-        Position targetPos,
-        bool isShot,
-        bool isGkInPenaltyArea,
-        Piece? defendingGk)
+        Piece defendingGk,
+        int courseDefenderCount,
+        Position targetGoal)
     {
         var opposingTeam = _state.ActiveTeam == TeamType.TeamA ? TeamType.TeamB : TeamType.TeamA;
+        int gkBonus = 1 + courseDefenderCount; // 手を使った守備+1 ＋ コース上のDF人数分+N
 
-        // もしシュートでGKがPA内にいて、defendersに含まれていない場合はGKも守備陣に合流
-        var finalDefenders = new List<Piece>(defenders);
-        if (isShot && isGkInPenaltyArea && defendingGk != null && !finalDefenders.Any(d => d.Id == defendingGk.Id))
+        var defenderParticipant = new DuelParticipant
         {
-            finalDefenders.Add(defendingGk);
-        }
+            PieceId = defendingGk.Id,
+            Name = defendingGk.Name,
+            Number = defendingGk.Number,
+            Ability = defendingGk.Ability,
+            AbilityBonus = gkBonus,
+            IsGoalkeeper = true
+        };
 
-        // 要件: ゴールに向かうシュートが打たれたときのみ、ディフェンス側GKは能力を+1する（手を使って守れるルール）
-        var defenderParticipants = finalDefenders.Select(p => new DuelParticipant
+        string bonusDesc = courseDefenderCount > 0
+            ? $"（🧤手守備+1 ＆ 🛡️シュートコース上DF{courseDefenderCount}名によるコース限定/壁補正+{courseDefenderCount}）"
+            : "（🧤手守備+1）";
+        string message = $"【シュート阻止！】 {attacker.Name} のシュートにGK {defendingGk.Name} がセービング{bonusDesc}！";
+
+        _state.PendingDuel = new DuelContext
+        {
+            Type = DuelType.Shot,
+            DuelPosition = defendingGk.Position,
+            PassTargetPosition = targetGoal,
+            AttackingTeam = _state.ActiveTeam,
+            DefendingTeam = opposingTeam,
+            Attackers = new List<DuelParticipant>
+            {
+                new() { PieceId = attacker.Id, Name = attacker.Name, Number = attacker.Number, Ability = attacker.Ability, AbilityBonus = 0, IsGoalkeeper = attacker.IsGoalkeeper }
+            },
+            Defenders = new List<DuelParticipant> { defenderParticipant },
+            Message = message
+        };
+
+        _state.MatchLogs.Add(_state.PendingDuel.Message);
+    }
+
+    /// <summary>
+    /// GK不在またはPA外の場合の、フィールドプレーヤーによるシュートブロック勝負
+    /// </summary>
+    private void CreateFieldBlockDuel(
+        Piece attacker,
+        List<Piece> defenders,
+        Position blockPos,
+        Position targetGoal)
+    {
+        var opposingTeam = _state.ActiveTeam == TeamType.TeamA ? TeamType.TeamB : TeamType.TeamA;
+        var defenderParticipants = defenders.Select(p => new DuelParticipant
         {
             PieceId = p.Id,
             Name = p.Name,
             Number = p.Number,
             Ability = p.Ability,
-            // シュート時のGKには能力+1ボーナスを付与！
-            AbilityBonus = (isShot && p.IsGoalkeeper) ? 1 : 0,
-            IsGoalkeeper = p.IsGoalkeeper
+            AbilityBonus = 0,
+            IsGoalkeeper = false
         }).ToList();
 
-        string message;
-        if (isShot)
-        {
-            bool hasGk = defenderParticipants.Any(d => d.IsGoalkeeper);
-            message = hasGk
-                ? $"【シュート阻止！】 {attacker.Name} のシュートにGKがセービング（手を使って能力+1）！"
-                : $"【シュート阻止！】 {attacker.Name} のシュートに対してディフェンスが体を張ってブロック！";
-        }
-        else
-        {
-            message = $"【インターセプト発生！】 パスコースに相手選手が立ちふさがりました！";
-        }
+        string message = $"【シュート阻止！】 {attacker.Name} のシュートに対してディフェンスが体を張ってブロック！";
 
         _state.PendingDuel = new DuelContext
         {
-            Type = isShot ? DuelType.Shot : DuelType.Intercept,
+            Type = DuelType.Shot,
+            DuelPosition = blockPos,
+            PassTargetPosition = targetGoal,
+            AttackingTeam = _state.ActiveTeam,
+            DefendingTeam = opposingTeam,
+            Attackers = new List<DuelParticipant>
+            {
+                new() { PieceId = attacker.Id, Name = attacker.Name, Number = attacker.Number, Ability = attacker.Ability, AbilityBonus = 0, IsGoalkeeper = attacker.IsGoalkeeper }
+            },
+            Defenders = defenderParticipants,
+            Message = message
+        };
+
+        _state.MatchLogs.Add(_state.PendingDuel.Message);
+    }
+
+    /// <summary>
+    /// パスコースまたは到着マスでのインターセプト勝負
+    /// </summary>
+    private void CreateInterceptDuel(
+        Piece attacker,
+        List<Piece> defenders,
+        Position duelPos,
+        Position targetPos)
+    {
+        var opposingTeam = _state.ActiveTeam == TeamType.TeamA ? TeamType.TeamB : TeamType.TeamA;
+        var defenderParticipants = defenders.Select(p => new DuelParticipant
+        {
+            PieceId = p.Id,
+            Name = p.Name,
+            Number = p.Number,
+            Ability = p.Ability,
+            AbilityBonus = 0,
+            IsGoalkeeper = p.IsGoalkeeper
+        }).ToList();
+
+        string message = $"【インターセプト発生！】 パスコースに相手選手が立ちふさがりました！";
+
+        _state.PendingDuel = new DuelContext
+        {
+            Type = DuelType.Intercept,
             DuelPosition = duelPos,
             PassTargetPosition = targetPos,
             AttackingTeam = _state.ActiveTeam,
@@ -551,6 +624,7 @@ public class GameEngineService : IGameEngineService
         }
 
         UpdateGkPrivilege();
+        _state.LastResolvedDuel = duel;
         _state.PendingDuel = null;
         return GetCurrentState();
     }
